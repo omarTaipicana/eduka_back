@@ -33,6 +33,14 @@ const Variables = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
+    grado: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    subsistema: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
   },
   {
     timestamps: false,
