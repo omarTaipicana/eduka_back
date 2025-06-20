@@ -1,6 +1,7 @@
 const catchError = require("../utils/catchError");
 const sendEmail = require("../utils/sendEmail");
 const Inscripcion = require("../models/Inscripcion");
+const Course = require("../models/Course");
 
 const getAll = catchError(async (req, res) => {
   const results = await Inscripcion.findAll();
@@ -9,8 +10,8 @@ const getAll = catchError(async (req, res) => {
 
 const create = catchError(async (req, res) => {
   const result = await Inscripcion.create(req.body);
-  const { email, nombres, apellidos } = req.body;
-
+  const { email, nombres, apellidos, courseId } = req.body;
+    const course = await Course.findByPk(courseId);
 
   await sendEmail({
     to: email,
@@ -28,7 +29,7 @@ const create = catchError(async (req, res) => {
       <div style="padding: 30px; text-align: center;">
         <h1 style="color: #007BFF;">¡Hola ${nombres} ${apellidos}!</h1>
         <h2 style="font-weight: normal;">Felicitaciones por inscribirte en nuestro curso</h2>
-        <h2 style="color: #007BFF;">"ANÁLISIS EN CONDUCTA CRIMINAL Y VICTIMOLOGÍA"</h2>
+        <h2 style="color: #007BFF;">"${course.nombre}"</h2>
         <p style="font-size: 16px; line-height: 1.6;">
           Estamos emocionados de que hayas elegido este curso para ampliar tus conocimientos. Próximamente recibirás en este correo las credenciales y detalles necesarios para acceder a la plataforma al inicio del curso.
         </p>
@@ -77,6 +78,7 @@ const update = catchError(async (req, res) => {
   if (result[0] === 0) return res.sendStatus(404);
   return res.json(result[1][0]);
 });
+
 
 module.exports = {
   getAll,
