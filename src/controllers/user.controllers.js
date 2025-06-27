@@ -150,7 +150,7 @@ const login = catchError(async (req, res) => {
       .json({ message: "El usuario no ha verificado su correo electrónico" });
 
   const token = jwt.sign({ user }, process.env.TOKEN_SECRET, {
-    expiresIn: "1d",
+    expiresIn: "2h",
   });
 
   return res.json({ token });
@@ -209,7 +209,9 @@ const sendEmailResetPassword = catchError(async (req, res) => {
 
       <!-- Cuerpo del mensaje -->
       <div style="padding: 30px; text-align: center;">
-        <h1 style="color: #007BFF;">Hola, ${user.firstName} ${user.lastName}</h1>
+        <h1 style="color: #007BFF;">Hola, ${user.firstName} ${
+      user.lastName
+    }</h1>
         <h2 style="font-weight: normal;">¿Olvidaste tu contraseña?</h2>
         <p style="font-size: 16px; line-height: 1.6;">
           No te preocupes. Para restablecer tu contraseña, simplemente haz clic en el siguiente botón:
