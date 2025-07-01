@@ -26,6 +26,7 @@ const create = catchError(async (req, res) => {
     verificado,
     distintivo,
     moneda,
+    entregado,
   } = req.body;
   const url = req.fileUrl;
 
@@ -39,6 +40,7 @@ const create = catchError(async (req, res) => {
     verificado,
     distintivo,
     moneda,
+    entregado,
     pagoUrl: url,
   });
 

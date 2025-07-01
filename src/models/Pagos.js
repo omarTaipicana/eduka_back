@@ -37,6 +37,11 @@ const Pagos = sequelize.define("pagos", {
     type: DataTypes.BOOLEAN,
     allowNull: false,
   },
+  entregado: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+  },
 });
 
 module.exports = Pagos;
