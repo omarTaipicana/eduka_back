@@ -42,6 +42,14 @@ const Pagos = sequelize.define("pagos", {
     allowNull: false,
     defaultValue: false,
   },
+  observacion: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  usuarioEdicion: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
 });
 
 module.exports = Pagos;
