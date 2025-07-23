@@ -44,6 +44,14 @@ const Inscripcion = sequelize.define("inscripcion", {
     type: DataTypes.STRING,
     allowNull: false,
   },
+  observacion: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  usuarioEdicion: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
 });
 
 module.exports = Inscripcion;
