@@ -3,22 +3,33 @@ const sequelizeM = require('../utils/connectionM');
 
 const getAllUserM = async (req, res) => {
   try {
-    // 1. Obtener todos los usuarios
-    const [users] = await sequelizeM.query("SELECT * FROM mdl_user");
-
-    // 2. Obtener todos los cursos en que están matriculados
-    const [enrolments] = await sequelizeM.query(`
+    // 1. Obtener usuarios activos (solo campos necesarios)
+    const [users] = await sequelizeM.query(`
       SELECT 
-        u.id AS userid,
-        c.id AS courseid,
-        c.shortname AS course
-      FROM mdl_user u
-      JOIN mdl_user_enrolments ue ON u.id = ue.userid
-      JOIN mdl_enrol e ON ue.enrolid = e.id
-      JOIN mdl_course c ON e.courseid = c.id
+        id, username, firstname, lastname, email, city, country, lang,
+        timezone, firstaccess, lastaccess
+      FROM mdl_user
+      WHERE deleted = 0 AND suspended = 0
     `);
 
-    // 3. Obtener las calificaciones por ítem (mod)
+    // 2. Obtener cursos matriculados por usuarios activos
+    const userIds = users.map(u => u.id);
+    if (userIds.length === 0) {
+      return res.json([]);
+    }
+
+    const [enrolments] = await sequelizeM.query(`
+      SELECT 
+        ue.userid,
+        c.id AS courseid,
+        c.shortname AS course
+      FROM mdl_user_enrolments ue
+      JOIN mdl_enrol e ON ue.enrolid = e.id
+      JOIN mdl_course c ON e.courseid = c.id
+      WHERE ue.userid IN (?)
+    `, { replacements: [userIds] });
+
+    // 3. Obtener calificaciones por ítem (mod) para esos usuarios
     const [grades] = await sequelizeM.query(`
       SELECT 
         gg.userid,
@@ -27,10 +38,10 @@ const getAllUserM = async (req, res) => {
         gg.finalgrade
       FROM mdl_grade_grades gg
       JOIN mdl_grade_items gi ON gg.itemid = gi.id
-      WHERE gi.itemtype = 'mod' AND gi.itemname IS NOT NULL
-    `);
+      WHERE gi.itemtype = 'mod' AND gi.itemname IS NOT NULL AND gg.userid IN (?)
+    `, { replacements: [userIds] });
 
-    // 4. Obtener la nota final del curso (itemtype = 'course')
+    // 4. Obtener notas finales (curso) para esos usuarios
     const [finalGrades] = await sequelizeM.query(`
       SELECT 
         gg.userid,
@@ -38,19 +49,16 @@ const getAllUserM = async (req, res) => {
         gg.finalgrade
       FROM mdl_grade_grades gg
       JOIN mdl_grade_items gi ON gg.itemid = gi.id
-      WHERE gi.itemtype = 'course'
-    `);
+      WHERE gi.itemtype = 'course' AND gg.userid IN (?)
+    `, { replacements: [userIds] });
 
-    // 5. Estructurar las notas por usuario → curso → ítem
+    // 5. Mapear notas por usuario → curso → ítem
     const userCourseGradesMap = {};
-
     grades.forEach(({ userid, courseid, itemname, finalgrade }) => {
       if (!userCourseGradesMap[userid]) userCourseGradesMap[userid] = {};
       if (!userCourseGradesMap[userid][courseid]) userCourseGradesMap[userid][courseid] = {};
       userCourseGradesMap[userid][courseid][itemname] = finalgrade;
     });
-
-    // Agregar la nota final del curso como 'Nota Final'
     finalGrades.forEach(({ userid, courseid, finalgrade }) => {
       if (!userCourseGradesMap[userid]) userCourseGradesMap[userid] = {};
       if (!userCourseGradesMap[userid][courseid]) userCourseGradesMap[userid][courseid] = {};
@@ -65,7 +73,7 @@ const getAllUserM = async (req, res) => {
       userCoursesMap[userid].push({ fullname: course, grades });
     });
 
-    // 7. Unir todo al resultado final
+    // 7. Construir resultado final
     const result = users.map(user => ({
       ...user,
       courses: userCoursesMap[user.id] || []
@@ -82,28 +90,31 @@ const getUserByUsernameM = async (req, res) => {
   try {
     const { username } = req.params;
 
-    // 1. Obtener el usuario por username o email
+    // 1. Obtener usuario activo con campos necesarios
     const [[user]] = await sequelizeM.query(`
-      SELECT * FROM mdl_user WHERE username = ? OR email = ?
+      SELECT 
+        id, username, firstname, lastname, email, city, country, lang,
+        timezone, firstaccess, lastaccess
+      FROM mdl_user
+      WHERE (username = ? OR email = ?) AND deleted = 0 AND suspended = 0
     `, { replacements: [username, username] });
 
     if (!user) {
       return res.status(404).json({ error: "Usuario no encontrado" });
     }
 
-    // 2. Obtener sus cursos
+    // 2. Obtener cursos del usuario
     const [enrolments] = await sequelizeM.query(`
       SELECT 
         c.id AS courseid,
         c.shortname AS course
-      FROM mdl_user u
-      JOIN mdl_user_enrolments ue ON u.id = ue.userid
+      FROM mdl_user_enrolments ue
       JOIN mdl_enrol e ON ue.enrolid = e.id
       JOIN mdl_course c ON e.courseid = c.id
-      WHERE u.id = ?
+      WHERE ue.userid = ?
     `, { replacements: [user.id] });
 
-    // 3. Obtener calificaciones por ítem
+    // 3. Obtener calificaciones (mod)
     const [grades] = await sequelizeM.query(`
       SELECT 
         gi.courseid,
@@ -114,7 +125,7 @@ const getUserByUsernameM = async (req, res) => {
       WHERE gg.userid = ? AND gi.itemtype = 'mod' AND gi.itemname IS NOT NULL
     `, { replacements: [user.id] });
 
-    // 4. Obtener calificación final del curso
+    // 4. Nota final del curso
     const [finalGrades] = await sequelizeM.query(`
       SELECT 
         gi.courseid,
@@ -124,7 +135,7 @@ const getUserByUsernameM = async (req, res) => {
       WHERE gg.userid = ? AND gi.itemtype = 'course'
     `, { replacements: [user.id] });
 
-    // 5. Organizar notas
+    // 5. Mapear notas por curso
     const gradesMap = {};
     grades.forEach(({ courseid, itemname, finalgrade }) => {
       if (!gradesMap[courseid]) gradesMap[courseid] = {};
@@ -135,7 +146,7 @@ const getUserByUsernameM = async (req, res) => {
       gradesMap[courseid]['Nota Final'] = finalgrade;
     });
 
-    // 6. Armar la lista de cursos del usuario
+    // 6. Armar cursos con notas
     const courses = enrolments.map(({ courseid, course }) => ({
       fullname: course,
       grades: gradesMap[courseid] || {}
@@ -149,5 +160,4 @@ const getUserByUsernameM = async (req, res) => {
 };
 
 
-
-module.exports = { getAllUserM, getUserByUsernameM  };
+module.exports = { getAllUserM, getUserByUsernameM };
