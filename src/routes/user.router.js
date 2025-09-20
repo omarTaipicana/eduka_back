@@ -5,7 +5,7 @@ const verifyJWT = require("../utils/verifyJWT")
 const userRouter = express.Router();
 
 userRouter.route('/users')
-    .get(verifyJWT, getAll)
+    .get( getAll)
     .post(create);
 
 userRouter.route('/users/login')
@@ -24,7 +24,7 @@ userRouter.route('/users/verify/:code')
     .get(verifyCode)
 
 userRouter.route('/users/:id')
-    .get(verifyJWT, getOne)
+    .get( getOne)
     .delete(verifyJWT, remove)
     .put(verifyJWT, update);
 
