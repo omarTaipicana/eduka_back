@@ -11,7 +11,7 @@ const User = sequelize.define("user", {
   cI: {
     type: DataTypes.STRING,
     allowNull: true,
-    unique: true,
+    unique: false,
   },
   email: {
     type: DataTypes.STRING,
@@ -20,7 +20,7 @@ const User = sequelize.define("user", {
   },
   password: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,
   },
   firstName: {
     type: DataTypes.STRING,
@@ -31,6 +31,14 @@ const User = sequelize.define("user", {
     allowNull: false,
   },
   cellular: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  grado: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  subsistema: {
     type: DataTypes.STRING,
     allowNull: true,
   },
@@ -53,7 +61,7 @@ const User = sequelize.define("user", {
   role: {
     type: DataTypes.STRING,
     allowNull: true,
-    defaultValue:"student"
+    defaultValue: "student",
   },
   isVerified: {
     type: DataTypes.BOOLEAN,
