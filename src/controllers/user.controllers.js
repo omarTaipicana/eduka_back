@@ -12,10 +12,7 @@ const Pagos = require("../models/Pagos");
 const Certificado = require("../models/Certificado");
 
 // ========================== GET ALL USERS ==========================
-// ========================== GET ALL USERS ==========================
-// ========================== GET ALL USERS OPTIMIZADO CON FILTROS Y PAGINACION ==========================
-// ========================== GET ALL USERS ==========================
-// ========================== GET ALL USERS ==========================
+
 const getAll = catchError(async (req, res) => {
   try {
     const {
@@ -34,16 +31,23 @@ const getAll = catchError(async (req, res) => {
     // --- 1. Usuarios locales
     const users = await User.findAll({ raw: true });
     if (!users || users.length === 0) {
-      return res.json({ total: 0, page: parseInt(page), limit: parseInt(limit), totalPages: 0, data: [] });
+      return res.json({
+        total: 0,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: 0,
+        data: [],
+      });
     }
 
-    const emails = users.map((u) => (u.email || '').toLowerCase()).filter(Boolean);
+    const emails = users
+      .map((u) => (u.email || "").toLowerCase())
+      .filter(Boolean);
 
-    // --- 2. Usuarios Moodle (sólo si hay emails)
+    // --- 2. Usuarios Moodle
     let moodleUsers = [];
     let moodleUserMap = {};
     let moodleUserIds = [];
-
     if (emails.length) {
       const [moodleUsersRes] = await sequelizeM.query(
         `
@@ -55,11 +59,13 @@ const getAll = catchError(async (req, res) => {
         { replacements: [emails] }
       );
       moodleUsers = moodleUsersRes || [];
-      moodleUsers.forEach((m) => { moodleUserMap[(m.email || '').toLowerCase()] = m; });
+      moodleUsers.forEach((m) => {
+        moodleUserMap[(m.email || "").toLowerCase()] = m;
+      });
       moodleUserIds = moodleUsers.map((u) => u.id);
     }
 
-    // --- 3. Matriculas Moodle (si hay moodleUserIds)
+    // --- 3. Cursos matriculados
     let enrolments = [];
     if (moodleUserIds.length) {
       const [enrolRes] = await sequelizeM.query(
@@ -79,43 +85,70 @@ const getAll = catchError(async (req, res) => {
     enrolments.forEach((e) => {
       const uid = String(e.userid);
       if (!enrolMap[uid]) enrolMap[uid] = {};
-      // Key by course shortname (curso), value includes numeric courseid
-      enrolMap[uid][String(e.curso)] = { courseid: e.courseid, grades: {} };
+      enrolMap[uid][String(e.curso)] = { courseid: e.courseid };
     });
 
-    // --- 4. Calificaciones mod y finales (si hay moodleUserIds)
+    // --- 4. Notas mod y finales
     let grades = [];
+    let finalGrades = [];
     if (moodleUserIds.length) {
       const [gradesRes] = await sequelizeM.query(
         `
         SELECT gg.userid, gi.courseid, gi.itemname, gg.finalgrade
         FROM mdl_grade_grades gg
         JOIN mdl_grade_items gi ON gg.itemid = gi.id
-        WHERE gg.userid IN (?)
+        WHERE gg.userid IN (?) AND gi.itemtype='mod'
       `,
         { replacements: [moodleUserIds] }
       );
       grades = gradesRes || [];
+
+      const [finalGradesRes] = await sequelizeM.query(
+        `
+        SELECT gg.userid, gi.courseid, gg.finalgrade
+        FROM mdl_grade_grades gg
+        JOIN mdl_grade_items gi ON gg.itemid = gi.id
+        WHERE gg.userid IN (?) AND gi.itemtype='course'
+      `,
+        { replacements: [moodleUserIds] }
+      );
+      finalGrades = finalGradesRes || [];
     }
 
     const userCourseGradesMap = {};
+    // Mapear notas por usuario → curso → ítem
     grades.forEach(({ userid, courseid, itemname, finalgrade }) => {
+      if (
+        !itemname ||
+        itemname.trim() === "" ||
+        itemname.toLowerCase() === "null"
+      )
+        return; // ignorar keys inválidas
       const uid = String(userid);
       const cid = String(courseid);
       if (!userCourseGradesMap[uid]) userCourseGradesMap[uid] = {};
       if (!userCourseGradesMap[uid][cid]) userCourseGradesMap[uid][cid] = {};
-      if (String(itemname).trim() === "Nota Final") {
-        const val = parseFloat(finalgrade);
-        userCourseGradesMap[uid][cid]["Nota Final"] = isNaN(val) ? null : val;
-      } else {
-        userCourseGradesMap[uid][cid][itemname] = finalgrade;
+      userCourseGradesMap[uid][cid][itemname.trim()] =
+        finalgrade !== null ? String(finalgrade) : null;
+    });
+
+    // Nota final
+    finalGrades.forEach(({ userid, courseid, finalgrade }) => {
+      const uid = String(userid);
+      const cid = String(courseid);
+      if (!userCourseGradesMap[uid]) userCourseGradesMap[uid] = {};
+      if (!userCourseGradesMap[uid][cid]) userCourseGradesMap[uid][cid] = {};
+      if (finalgrade !== null) {
+        userCourseGradesMap[uid][cid]["Nota Final"] = String(finalgrade);
       }
     });
 
     // --- 5. Diccionario curso.sigla → nombre
     const allCourses = await Course.findAll({ raw: true });
     const courseMap = {};
-    allCourses.forEach((c) => { if (c && c.sigla) courseMap[String(c.sigla)] = c.nombre; });
+    allCourses.forEach((c) => {
+      if (c && c.sigla) courseMap[String(c.sigla)] = c.nombre;
+    });
 
     // --- 6. Inscripciones + pagos + certificados
     const [inscripcionesData, pagosData, certificadosData] = await Promise.all([
@@ -125,63 +158,86 @@ const getAll = catchError(async (req, res) => {
     ]);
 
     const inscMap = {};
-    (inscripcionesData || []).forEach((i) => {
+    inscripcionesData.forEach((i) => {
       const key = String(i.userId);
       if (!inscMap[key]) inscMap[key] = [];
       inscMap[key].push(i);
     });
 
     const pagosMap = {};
-    (pagosData || []).forEach((p) => {
+    pagosData.forEach((p) => {
       const key = String(p.inscripcionId);
       if (!pagosMap[key]) pagosMap[key] = [];
       pagosMap[key].push(p);
     });
 
     const certMap = {};
-    (certificadosData || []).forEach((c) => {
-      const ced = String(c.cedula || '').trim().toLowerCase();
-      const cur = String(c.curso || '').trim().toLowerCase();
+    certificadosData.forEach((c) => {
+      const ced = String(c.cedula || "")
+        .trim()
+        .toLowerCase();
+      const cur = String(c.curso || "")
+        .trim()
+        .toLowerCase();
       if (ced && cur) certMap[`${ced}-${cur}`] = c;
     });
 
-    // --- Detectar si hay filtros por curso (para decidir si mostramos usuarios sin cursos)
-    const hasCourseFilters = [notaFinal, matriculado, acces, pagos, certificado, curso].some(
-      (v) => v !== undefined && v !== ""
-    );
+    // --- 7. Filtros
+    const hasCourseFilters = [
+      notaFinal,
+      matriculado,
+      acces,
+      pagos,
+      certificado,
+      curso,
+    ].some((v) => v !== undefined && v !== "");
 
-    // --- 7. Construir resultado final con filtros
     const result = [];
 
     for (const user of users) {
-      const userIdStr = String(user.id);
-      const moodleUser = moodleUserMap[(user.email || '').toLowerCase()];
-      const userInscripciones = inscMap[userIdStr] || [];
+      const uidStr = String(user.id);
+      const moodleUser = moodleUserMap[(user.email || "").toLowerCase()];
+      const userInscripciones = inscMap[uidStr] || [];
 
-      // filtros de usuario (aplicar sobre todo el usuario)
-      const fullName = `${(user.firstName || user.firstname || '')} ${(user.lastName || user.lastname || '')}`.trim();
-      if (search && !fullName.toLowerCase().includes(String(search).toLowerCase())) continue;
-      if (cedula && !(String(user.cI || user.cedula || '').includes(String(cedula)))) continue;
+      if (search) {
+        const fullName = `${user.firstName || user.firstname || ""} ${
+          user.lastName || user.lastname || ""
+        }`.trim();
+        if (!fullName.toLowerCase().includes(String(search).toLowerCase()))
+          continue;
+      }
+      if (
+        cedula &&
+        !String(user.cI || user.cedula || "").includes(String(cedula))
+      )
+        continue;
 
-      // mapear cursos del usuario
-      const coursesWithData = (userInscripciones || [])
+      const coursesWithData = userInscripciones
         .map((insc) => {
-          // enrolData por shortname (insc.curso) -> contiene courseid numérico
-          const enrolData = moodleUser && enrolMap[String(moodleUser.id)]?.[String(insc.curso)]
-            ? enrolMap[String(moodleUser.id)][String(insc.curso)]
-            : null;
+          const enrolData =
+            moodleUser && enrolMap[String(moodleUser.id)]?.[String(insc.curso)]
+              ? enrolMap[String(moodleUser.id)][String(insc.curso)]
+              : null;
+
+          const gradesObj =
+            enrolData && userCourseGradesMap[String(moodleUser?.id)]
+              ? userCourseGradesMap[String(moodleUser.id)][
+                  String(enrolData.courseid)
+                ] || {}
+              : {};
 
           const pagosList = pagosMap[String(insc.id)] || [];
 
-          const cedKey = String(user.cI || user.cedula || '').trim().toLowerCase();
-          const certKey = `${cedKey}-${String(insc.curso || '').trim().toLowerCase()}`;
+          const cedKey = String(user.cI || user.cedula || "")
+            .trim()
+            .toLowerCase();
+          const certKey = `${cedKey}-${String(insc.curso || "")
+            .trim()
+            .toLowerCase()}`;
           const cert = certMap[certKey];
-          const certData = cert ? { grupo: cert.verificado, fecha: cert.fecha, url: cert.url } : {};
-
-          // grades lookup por courseid (numérico) usando enrolData.courseid
-          const gradesObj = (enrolData && userCourseGradesMap[String(moodleUser?.id)]) 
-            ? (userCourseGradesMap[String(moodleUser.id)][String(enrolData.courseid)] || {})
-            : {};
+          const certData = cert
+            ? { grupo: cert.verificado, fecha: cert.fecha, url: cert.url }
+            : null;
 
           return {
             curso: insc.curso,
@@ -202,42 +258,44 @@ const getAll = catchError(async (req, res) => {
           };
         })
         .filter((courseItem) => {
-          // filtros por curso (solo aquí)
           if (notaFinal === "true") {
-            const nf = courseItem.grades && courseItem.grades["Nota Final"];
-            if (nf === null || nf === undefined || isNaN(nf) || nf < 7) return false;
+       const nf = courseItem.grades && courseItem.grades["Nota Final"];
+  const nfNum = nf !== null && nf !== undefined ? parseFloat(nf) : null;
+  if (nfNum === null || isNaN(nfNum) || nfNum < 7) return false;
           }
           if (matriculado === "true" && !courseItem.matriculado) return false;
           if (matriculado === "false" && courseItem.matriculado) return false;
           if (acces === "true" && !courseItem.acces) return false;
           if (acces === "false" && courseItem.acces) return false;
-          if (pagos === "true" && !(courseItem.pagos && courseItem.pagos.length)) return false;
-          if (pagos === "false" && (courseItem.pagos && courseItem.pagos.length)) return false;
-          if (certificado === "true" && !courseItem.certificado?.url) return false;
-          if (certificado === "false" && courseItem.certificado?.url) return false;
+          if (
+            pagos === "true" &&
+            !(courseItem.pagos && courseItem.pagos.length)
+          )
+            return false;
+          if (pagos === "false" && courseItem.pagos && courseItem.pagos.length)
+            return false;
+          if (certificado === "true" && !courseItem.certificado?.url)
+            return false;
+          if (certificado === "false" && courseItem.certificado?.url)
+            return false;
           if (curso && String(courseItem.curso) !== String(curso)) return false;
           return true;
         });
 
-      // decidir si incluimos el usuario:
       if (hasCourseFilters) {
-        // Si hay filtros por curso, solo incluimos si hay al menos 1 curso que cumpla
-        if (coursesWithData.length) result.push({ ...user, courses: coursesWithData });
+        if (coursesWithData.length)
+          result.push({ ...user, courses: coursesWithData });
       } else {
-        // Si NO hay filtros por curso, incluimos el usuario (puede tener courses: [])
         result.push({ ...user, courses: coursesWithData });
       }
     }
 
-    // --- 8. PAGINACION
+    // --- 8. Paginación
     const total = result.length;
     const pageInt = Math.max(1, parseInt(page));
     const limitInt = Math.max(1, parseInt(limit));
     const start = (pageInt - 1) * limitInt;
     const end = start + limitInt;
-
-    // Opcional: logs para debug en servidor (desactiva en producción)
-    console.log(`[getAll] users=${users.length} moodleUsers=${moodleUserIds.length} inscripciones=${inscripcionesData?.length || 0} resultados=${total}`);
 
     res.json({
       total,
@@ -460,13 +518,24 @@ const getOne = catchError(async (req, res) => {
       );
 
       const userCourseGradesMap = {};
-      grades.forEach(({ courseid, itemname, finalgrade }) => {
-        if (!userCourseGradesMap[courseid]) userCourseGradesMap[courseid] = {};
-        userCourseGradesMap[courseid][itemname] = finalgrade;
-      });
-      finalGrades.forEach(({ courseid, finalgrade }) => {
-        if (!userCourseGradesMap[courseid]) userCourseGradesMap[courseid] = {};
-        userCourseGradesMap[courseid]["Nota Final"] = finalgrade;
+      grades.forEach(({ userid, courseid, itemname, finalgrade }) => {
+        const uid = String(userid);
+        const cid = String(courseid);
+        if (!userCourseGradesMap[uid]) userCourseGradesMap[uid] = {};
+        if (!userCourseGradesMap[uid][cid]) userCourseGradesMap[uid][cid] = {};
+
+        const key = String(itemname).trim();
+        if (key && key.toLowerCase() !== "null") {
+          // <-- FILTRO: no vacío ni "null"
+          if (key === "Nota Final") {
+            const val = parseFloat(finalgrade);
+            userCourseGradesMap[uid][cid]["Nota Final"] = isNaN(val)
+              ? null
+              : val;
+          } else {
+            userCourseGradesMap[uid][cid][key] = finalgrade;
+          }
+        }
       });
 
       enrolments.forEach((e) => {
