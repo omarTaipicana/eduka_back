@@ -200,9 +200,9 @@ const getAll = catchError(async (req, res) => {
       const userInscripciones = inscMap[uidStr] || [];
 
       if (search) {
-        const fullName = `${user.firstName || user.firstname || ""} ${
-          user.lastName || user.lastname || ""
-        }`.trim();
+        const fullName = `${user.grado || user.grado || ""} ${
+          user.firstName || user.firstname || ""
+        } ${user.lastName || user.lastname || ""}`.trim();
         if (!fullName.toLowerCase().includes(String(search).toLowerCase()))
           continue;
       }
@@ -451,6 +451,9 @@ const create = catchError(async (req, res) => {
     .status(201)
     .json({ user: newUser, message: "Usuario creado y correo enviado" });
 });
+
+
+
 
 // ========================== GET ONE USER (Optimizado) ==========================
 const getOne = catchError(async (req, res) => {

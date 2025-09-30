@@ -407,9 +407,15 @@ const create = catchError(async (req, res) => {
   </div>
   `,
   });
+  
+  const io = req.app.get("io");
+  if (io) io.emit("pagoCreado", result);
 
   return res.status(201).json(result);
 });
+
+
+
 
 const getOne = catchError(async (req, res) => {
   const { id } = req.params;

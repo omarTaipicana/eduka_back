@@ -9,32 +9,31 @@ const sequelizeM = require("../utils/connectionM");
 const sequelize = require("../utils/connection");
 
 const getAll = catchError(async (req, res) => {
-  const results = await Inscripcion.findAll();
+  const results = await Inscripcion.findAll({
+    include: [
+      {
+        model: User,
+        attributes: ["firstName", "lastName", "cI", "grado", "email"],       },
+    ],
+  });
+
   return res.json(results);
 });
-
-
-
-
-
-
-
 
 const getDashboardInscripciones = catchError(async (req, res) => {
   const { desde, hasta } = req.query;
 
   // Filtro de fechas en Inscripcion
-const where = {};
-if (desde || hasta) {
-  where.createdAt = {};
-  if (desde) where.createdAt[Op.gte] = new Date(desde);
-  if (hasta) {
-    const hastaDate = new Date(hasta);
-    hastaDate.setDate(hastaDate.getDate() + 1); // sumamos 1 día
-    where.createdAt[Op.lt] = hastaDate; // menor que el siguiente día
+  const where = {};
+  if (desde || hasta) {
+    where.createdAt = {};
+    if (desde) where.createdAt[Op.gte] = new Date(desde);
+    if (hasta) {
+      const hastaDate = new Date(hasta);
+      hastaDate.setDate(hastaDate.getDate() + 1); // sumamos 1 día
+      where.createdAt[Op.lt] = hastaDate; // menor que el siguiente día
+    }
   }
-}
-
 
   // Traemos las inscripciones con datos del usuario relacionados
   const inscripciones = await Inscripcion.findAll({
@@ -107,26 +106,15 @@ if (desde || hasta) {
     inscritosPorSubsistema: Object.entries(inscritosPorSubsistema).map(
       ([subsistema, cantidad]) => ({ subsistema, cantidad })
     ),
-    inscritosPorDia: Object.entries(inscritosPorDia).map(([fecha, cantidad]) => ({
-      fecha,
-      cantidad,
-    })),
+    inscritosPorDia: Object.entries(inscritosPorDia).map(
+      ([fecha, cantidad]) => ({
+        fecha,
+        cantidad,
+      })
+    ),
     inscritosPorFranjaHoraria,
   });
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 const validateUser = catchError(async (req, res) => {
   const { email, code } = req.body;
@@ -166,8 +154,6 @@ const validateUser = catchError(async (req, res) => {
     user,
   });
 });
-
-
 
 const create = catchError(async (req, res) => {
   const {
@@ -213,7 +199,7 @@ const create = catchError(async (req, res) => {
 
   // Verificar si ya está inscrito en este curso
   const existingInscripcion = await Inscripcion.findOne({
-    where: { userId: user.id, courseId }
+    where: { userId: user.id, courseId },
   });
 
   if (existingInscripcion) {
@@ -268,14 +254,11 @@ const create = catchError(async (req, res) => {
     `,
   });
 
+  const io = req.app.get("io");
+  if (io) io.emit("inscripcionCreada", { inscripcion, user, course });
+
   return res.status(201).json({ inscripcion, user, course });
 });
-
-
-
-
-
-
 
 const getOne = catchError(async (req, res) => {
   const { id } = req.params;
@@ -309,7 +292,6 @@ const update = catchError(async (req, res) => {
 
   return res.json(inscripcionActualizada);
 });
-
 
 module.exports = {
   getAll,
