@@ -25,7 +25,7 @@ const getAll = catchError(async (req, res) => {
       certificado,
       curso,
       page = 1,
-      limit = 10,
+      limit = 15,
     } = req.query;
 
     // --- 1. Usuarios locales
@@ -258,11 +258,21 @@ const getAll = catchError(async (req, res) => {
           };
         })
         .filter((courseItem) => {
+          // --- filtro Nota Final
           if (notaFinal === "true") {
-       const nf = courseItem.grades && courseItem.grades["Nota Final"];
-  const nfNum = nf !== null && nf !== undefined ? parseFloat(nf) : null;
-  if (nfNum === null || isNaN(nfNum) || nfNum < 7) return false;
+            const nf = courseItem.grades?.["Nota Final"];
+            const nfNum =
+              nf !== null && nf !== undefined ? parseFloat(nf) : null;
+            if (nfNum === null || isNaN(nfNum) || nfNum < 7) return false;
           }
+          if (notaFinal === "false") {
+            const nf = courseItem.grades?.["Nota Final"];
+            const nfNum =
+              nf !== null && nf !== undefined ? parseFloat(nf) : null;
+            if (nfNum === null || isNaN(nfNum) || nfNum >= 7) return false;
+          }
+
+          // --- otros filtros
           if (matriculado === "true" && !courseItem.matriculado) return false;
           if (matriculado === "false" && courseItem.matriculado) return false;
           if (acces === "true" && !courseItem.acces) return false;
@@ -279,6 +289,7 @@ const getAll = catchError(async (req, res) => {
           if (certificado === "false" && courseItem.certificado?.url)
             return false;
           if (curso && String(courseItem.curso) !== String(curso)) return false;
+
           return true;
         });
 
@@ -309,21 +320,6 @@ const getAll = catchError(async (req, res) => {
     res.status(500).json({ error: "Error al obtener los datos." });
   }
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 const create = catchError(async (req, res) => {
   const { cI, email, password, firstName, lastName, frontBaseUrl } = req.body;
