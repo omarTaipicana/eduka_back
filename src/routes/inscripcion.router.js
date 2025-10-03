@@ -1,4 +1,4 @@
-const { getAll, getDashboardInscripciones, validateUser, create, getOne, remove, update } = require('../controllers/inscripcion.controllers');
+const { getAll, getDashboardInscripciones, getDashboardObservaciones, validateUser, create, getOne, remove, update } = require('../controllers/inscripcion.controllers');
 const express = require('express');
 
 const inscripcionRouter = express.Router();
@@ -9,6 +9,9 @@ inscripcionRouter.route('/inscripcion')
 
 inscripcionRouter.route('/inscripcion_dashboard')
     .get(getDashboardInscripciones)
+
+inscripcionRouter.route('/inscripcion_dashboard_observacion')
+    .get(getDashboardObservaciones)
 
 inscripcionRouter.route('/validate')
     .post(validateUser);

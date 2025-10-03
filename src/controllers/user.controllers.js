@@ -153,7 +153,10 @@ const getAll = catchError(async (req, res) => {
     // --- 6. Inscripciones + pagos + certificados
     const [inscripcionesData, pagosData, certificadosData] = await Promise.all([
       Inscripcion.findAll({ raw: true }),
-      Pagos.findAll({ raw: true }),
+      Pagos.findAll({
+        raw: true,
+        where: { confirmacion: true }, // 👈 solo pagos confirmados
+      }),
       Certificado.findAll({ raw: true }),
     ]);
 
@@ -452,9 +455,6 @@ const create = catchError(async (req, res) => {
     .json({ user: newUser, message: "Usuario creado y correo enviado" });
 });
 
-
-
-
 // ========================== GET ONE USER (Optimizado) ==========================
 const getOne = catchError(async (req, res) => {
   try {
@@ -555,7 +555,10 @@ const getOne = catchError(async (req, res) => {
     const pagos = inscripcionIds.length
       ? await Pagos.findAll({
           raw: true,
-          where: { inscripcionId: inscripcionIds },
+          where: {
+            inscripcionId: inscripcionIds,
+            confirmacion: true, // solo pagos confirmados
+          },
         })
       : [];
 
@@ -820,7 +823,10 @@ const getLoggedUser = catchError(async (req, res) => {
     const pagos = inscripcionIds.length
       ? await Pagos.findAll({
           raw: true,
-          where: { inscripcionId: inscripcionIds },
+          where: {
+            inscripcionId: inscripcionIds,
+            confirmacion: true, // solo pagos confirmados
+          },
         })
       : [];
 

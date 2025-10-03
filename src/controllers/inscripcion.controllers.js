@@ -116,6 +116,120 @@ const getDashboardInscripciones = catchError(async (req, res) => {
   });
 });
 
+
+
+
+const getDashboardObservaciones = catchError(async (req, res) => {
+  const { desde, hasta, curso, usuarioEdicion } = req.query;
+
+  // Filtros dinámicos
+  const where = {
+    [Op.and]: [
+      { observacion: { [Op.ne]: null } },
+      { observacion: { [Op.ne]: "" } },
+    ],
+  };
+
+  // filtro de fechas usando updatedAt
+  if (desde || hasta) {
+    where.updatedAt = {};
+    if (desde) where.updatedAt[Op.gte] = new Date(desde);
+    if (hasta) {
+      const hastaDate = new Date(hasta);
+      hastaDate.setDate(hastaDate.getDate() + 1);
+      where.updatedAt[Op.lt] = hastaDate;
+    }
+  }
+
+  // filtro por curso
+  if (curso && curso !== "todos") {
+    where.curso = curso;
+  }
+
+  // filtro por usuarioEdicion
+  if (usuarioEdicion && usuarioEdicion !== "todos") {
+    where.usuarioEdicion = usuarioEdicion;
+  }
+
+  // Obtener las inscripciones filtradas
+  const observaciones = await Inscripcion.findAll({
+    attributes: ["updatedAt", "usuarioEdicion", "curso", "observacion"],
+    where,
+    include: [
+      {
+        model: User,
+        as: "user",
+        attributes: ["firstName", "lastName"],
+      },
+    ],
+  });
+
+  // ---- Agrupaciones ----
+
+  // Conteo por día
+// Agrupando observaciones por día
+const observacionesPorDia = {};
+
+// obtenemos las observaciones filtradas desde la DB
+observaciones.forEach((o) => {
+  const fecha = o.updatedAt.toISOString().split("T")[0];
+  observacionesPorDia[fecha] = (observacionesPorDia[fecha] || 0) + 1;
+});
+
+// convertimos a array y ordenamos por fecha ascendente
+const observacionesPorDiaOrdenado = Object.entries(observacionesPorDia)
+  .map(([fecha, cantidad]) => ({ fecha, cantidad }))
+  .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
+
+  // Conteo por hora
+  const franjas = [
+    { label: "00H-03H", from: 0, to: 3 },
+    { label: "04H-07H", from: 4, to: 7 },
+    { label: "08H-11H", from: 8, to: 11 },
+    { label: "12H-15H", from: 12, to: 15 },
+    { label: "16H-19H", from: 16, to: 19 },
+    { label: "20H-23H", from: 20, to: 23 },
+  ];
+
+  const observacionesPorFranjaHoraria = franjas.map((f) => ({
+    label: f.label,
+    value: 0,
+  }));
+
+  observaciones.forEach((o) => {
+    const hour = o.updatedAt.getHours();
+    const franja = franjas.find((f) => hour >= f.from && hour <= f.to);
+    if (franja) {
+      const index = observacionesPorFranjaHoraria.findIndex(
+        (f) => f.label === franja.label
+      );
+      if (index !== -1) observacionesPorFranjaHoraria[index].value++;
+    }
+  });
+
+  // Conteo por usuarioEdicion
+  const observacionesPorUsuario = {};
+  observaciones.forEach((o) => {
+    const userEdit = o.usuarioEdicion || "Desconocido";
+    observacionesPorUsuario[userEdit] =
+      (observacionesPorUsuario[userEdit] || 0) + 1;
+  });
+
+  return res.json({
+    totalObservaciones: observaciones.length,
+    observacionesPorDiaOrdenado: Object.entries(observacionesPorDiaOrdenado).map(
+      ([fecha, cantidad]) => ({ fecha, cantidad })
+    ),
+    observacionesPorFranjaHoraria,
+    observacionesPorUsuario: Object.entries(observacionesPorUsuario).map(
+      ([usuario, cantidad]) => ({ usuario, cantidad })
+    ),
+  });
+});
+
+
+
 const validateUser = catchError(async (req, res) => {
   const { email, code } = req.body;
 
@@ -296,6 +410,7 @@ const update = catchError(async (req, res) => {
 module.exports = {
   getAll,
   getDashboardInscripciones,
+  getDashboardObservaciones,
   validateUser,
   create,
   getOne,
