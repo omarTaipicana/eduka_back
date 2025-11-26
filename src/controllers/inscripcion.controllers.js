@@ -4,6 +4,8 @@ const { Op } = require("sequelize");
 const Inscripcion = require("../models/Inscripcion");
 const Course = require("../models/Course");
 const User = require("../models/User");
+const { crearUsuarioMoodle, inscribirUsuarioCurso, registrarUsuarioEnCurso, getMoodleCourseId } = require("../utils/moodle");
+
 
 const sequelizeM = require("../utils/connectionM");
 const sequelize = require("../utils/connection");
@@ -13,7 +15,8 @@ const getAll = catchError(async (req, res) => {
     include: [
       {
         model: User,
-        attributes: ["firstName", "lastName", "cI", "grado", "email"],       },
+        attributes: ["firstName", "lastName", "cI", "grado", "email"],
+      },
     ],
   });
 
@@ -167,19 +170,19 @@ const getDashboardObservaciones = catchError(async (req, res) => {
   // ---- Agrupaciones ----
 
   // Conteo por día
-// Agrupando observaciones por día
-const observacionesPorDia = {};
+  // Agrupando observaciones por día
+  const observacionesPorDia = {};
 
-// obtenemos las observaciones filtradas desde la DB
-observaciones.forEach((o) => {
-  const fecha = o.updatedAt.toISOString().split("T")[0];
-  observacionesPorDia[fecha] = (observacionesPorDia[fecha] || 0) + 1;
-});
+  // obtenemos las observaciones filtradas desde la DB
+  observaciones.forEach((o) => {
+    const fecha = o.updatedAt.toISOString().split("T")[0];
+    observacionesPorDia[fecha] = (observacionesPorDia[fecha] || 0) + 1;
+  });
 
-// convertimos a array y ordenamos por fecha ascendente
-const observacionesPorDiaOrdenado = Object.entries(observacionesPorDia)
-  .map(([fecha, cantidad]) => ({ fecha, cantidad }))
-  .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+  // convertimos a array y ordenamos por fecha ascendente
+  const observacionesPorDiaOrdenado = Object.entries(observacionesPorDia)
+    .map(([fecha, cantidad]) => ({ fecha, cantidad }))
+    .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
 
 
   // Conteo por hora
@@ -289,6 +292,7 @@ const create = catchError(async (req, res) => {
 
   // Verificar si ya existe un usuario por email
   let user = await User.findOne({ where: { email } });
+  let usuarioMoodleNuevo = false;
 
   if (user) {
     // Actualizar campos si el usuario ya existe
@@ -309,70 +313,165 @@ const create = catchError(async (req, res) => {
       grado,
       subsistema,
     });
+    usuarioMoodleNuevo = true;
   }
-
-  // Verificar si ya está inscrito en este curso
-  const existingInscripcion = await Inscripcion.findOne({
-    where: { userId: user.id, courseId },
-  });
-
-  if (existingInscripcion) {
-    return res.status(200).json({
-      message: "Ya estabas inscrito en este curso",
-      inscripcion: existingInscripcion,
-      user,
-      course: await Course.findByPk(courseId),
-    });
-  }
-
-  // Crear inscripción
-  const inscripcion = await Inscripcion.create({
-    aceptacion,
-    curso,
-    courseId,
-    userId: user.id,
-  });
 
   // Buscar curso
   const course = await Course.findByPk(courseId);
+  if (!course) return res.status(404).json({ error: "Curso no encontrado" });
 
+  let inscripcion = null;
+
+  try {
+    // Intentamos crear y matricular usuario en Moodle
+    const resultadoMoodle = await registrarUsuarioEnCurso({
+      cedula,
+      nombres,
+      apellidos,
+      email,
+      courseShortname: course.sigla,
+    });
+
+    if (!resultadoMoodle) {
+      console.error("❌ No se pudo registrar usuario en Moodle. Inscripción local NO creada.");
+    } else {
+      console.log(`✅ Usuario ${cedula} inscrito en Moodle curso ${course.nombre}`);
+
+      // Guardamos el ID Moodle en nuestra base local si no lo tiene
+      if (!user.moodleId) {
+        await user.update({ moodleId: resultadoMoodle.usuario.id });
+      }
+
+      // Registramos la inscripción solo si Moodle fue exitoso
+      inscripcion = await Inscripcion.findOne({
+        where: { userId: user.id, courseId },
+      });
+
+      if (!inscripcion) {
+        inscripcion = await Inscripcion.create({
+          aceptacion,
+          curso,
+          courseId,
+          userId: user.id,
+        });
+      }
+    }
+  } catch (error) {
+    console.error("Error con Moodle:", error.message);
+  }
+
+  // URL curso Moodle
+  const courseIdMoodle = getMoodleCourseId(course.sigla);
+  const cursoUrl = `${process.env.MOODLE_URL}/course/view.php?name=${course.sigla}`;
   // Enviar email
   await sendEmail({
     to: email,
     subject: "Inscripción confirmada - EDUKA",
     html: `
-      <div style="font-family: Arial, sans-serif; background-color: #f0f8ff; padding: 20px; color: #333;">
-        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); overflow: hidden;">
-          <div style="text-align: center; background-color: #007BFF; padding: 20px;">
-            <img src="https://res.cloudinary.com/desgmhmg4/image/upload/v1747890355/eduka_sf_gaus5o.png" alt="EDUKA" style="width: 150px;" />
-          </div>
-          <div style="padding: 30px; text-align: center;">
-            <h1 style="color: #007BFF;">¡Hola ${nombres} ${apellidos}!</h1>
-            <h2 style="font-weight: normal;">Felicitaciones por inscribirte en nuestro curso</h2>
-            <h2 style="color: #007BFF;">"${course.nombre}"</h2>
-            <p style="font-size: 16px; line-height: 1.6;">
-              Estamos emocionados de que hayas elegido este curso para ampliar tus conocimientos. Próximamente recibirás en este correo las credenciales y detalles necesarios para acceder a la plataforma al inicio del curso.
-            </p>
-            <p style="font-size: 16px; line-height: 1.6;">
-              Mantente atento/a a tu bandeja de entrada y, por favor, no dudes en contactarnos si tienes alguna pregunta.
-            </p>
-            <p style="margin-top: 30px; font-size: 14px; color: #666;">
-              Si no realizaste esta inscripción, por favor comunícate con nosotros de inmediato.
-            </p>
-          </div>
-          <div style="background-color: #f0f0f0; text-align: center; padding: 15px; font-size: 12px; color: #999;">
-            © ${new Date().getFullYear()} EDUKA. Todos los derechos reservados.
-          </div>
-        </div>
+  <div style="font-family: Arial, sans-serif; background-color: #f4f6f8; padding: 20px; color: #333;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 10px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); overflow: hidden;">
+      
+      <!-- Header -->
+      <div style="text-align: center; background-color: #007BFF; padding: 25px;">
+        <img src="https://res.cloudinary.com/desgmhmg4/image/upload/v1747890355/eduka_sf_gaus5o.png" alt="EDUKA" style="width: 160px;" />
       </div>
-    `,
+      
+      <!-- Body -->
+      <div style="padding: 35px; text-align: center;">
+        <h1 style="color: #007BFF; margin-bottom: 10px;">¡Hola ${nombres} ${apellidos}!</h1>
+        <h2 style="font-weight: normal; margin-bottom: 15px;">¡Felicitaciones por tu inscripción!</h2>
+        <h2 style="color: #007BFF; margin-bottom: 25px;">"${course.nombre}"</h2>
+        
+        <p style="font-size: 16px; line-height: 1.6; margin-bottom: 25px;">
+          Nos alegra que hayas elegido este curso para ampliar tus conocimientos. A continuación encontrarás tus credenciales de acceso a la plataforma:
+        </p>
+
+        <p style="font-size: 16px; line-height: 1.7; margin-bottom: 30px;">
+          ${usuarioMoodleNuevo
+        ? `🔑 <strong>Usuario:</strong> ${cedula} <br>
+               🔒 <strong>Contraseña:</strong> Eduka.${cedula}*`
+        : `Ya tienes un usuario registrado en nuestra plataforma. Usa tus credenciales habituales para ingresar.`}
+        </p>
+
+        <p style="text-align: center; margin-bottom: 35px;">
+          <a href="${cursoUrl}" target="_blank"
+            style="
+              background-color: #007BFF;
+              color: #ffffff;
+              padding: 14px 30px;
+              text-decoration: none;
+              border-radius: 6px;
+              font-size: 16px;
+              font-weight: 600;
+              display: inline-block;
+              box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+              transition: background-color 0.3s ease;
+            ">
+            🎓 Ir al curso
+          </a>
+        </p>
+
+        <!-- Atención personalizada WhatsApp -->
+        <div style="margin-top: 40px; text-align: center;">
+          <p style="font-size: 20px; font-weight: 700; color: #2c3e50; margin-bottom: 10px;">
+            📞 Atención Personalizada
+          </p>
+          <p style="font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+            Si tienes preguntas o necesitas ayuda, estamos disponibles para brindarte soporte inmediato.
+          </p>
+          <a href="https://wa.me/593980773229" target="_blank"
+            style="
+              background-color: #25D366;
+              color: #ffffff;
+              padding: 12px 28px;
+              text-decoration: none;
+              border-radius: 6px;
+              font-size: 16px;
+              font-weight: 600;
+              display: inline-block;
+            ">
+            Escribir por WhatsApp
+          </a>
+        </div>
+
+      </div>
+      
+      <!-- Footer -->
+      <div style="background-color: #f0f0f0; padding: 25px; text-align: center; font-size: 13px; color: #666;">
+        <p>Este es un correo automático, por favor no respondas a este mensaje.</p>
+        <p>Si necesitas soporte adicional, visita nuestra sección de contacto:</p>
+        <p style="margin-top: 10px;">
+          <a href="https://eduka-educ.com" target="_blank"
+            style="
+              background-color: #007BFF;
+              color: #ffffff;
+              padding: 10px 24px;
+              text-decoration: none;
+              border-radius: 5px;
+              font-weight: 600;
+              display: inline-block;
+            ">
+            Contactar soporte
+          </a>
+        </p>
+        <p style="margin-top: 20px;">© ${new Date().getFullYear()} EDUKA. Todos los derechos reservados.</p>
+      </div>
+      
+    </div>
+  </div>
+  `,
   });
+
+
 
   const io = req.app.get("io");
   if (io) io.emit("inscripcionCreada", { inscripcion, user, course });
 
   return res.status(201).json({ inscripcion, user, course });
 });
+
+
+
 
 const getOne = catchError(async (req, res) => {
   const { id } = req.params;
