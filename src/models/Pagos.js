@@ -20,6 +20,14 @@ const Pagos = sequelize.define("pagos", {
     type: DataTypes.INTEGER,
     allowNull: false,
   },
+  entidad: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
+  idDeposito: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
   confirmacion: {
     type: DataTypes.BOOLEAN,
     allowNull: false,

@@ -47,13 +47,13 @@ const getAll = catchError(async (req, res) => {
   // filtros de User
   const userWhere = busqueda
     ? {
-        [Op.or]: [
-          { grado: { [Op.iLike]: `%${busqueda}%` } },
-          { firstName: { [Op.iLike]: `%${busqueda}%` } },
-          { lastName: { [Op.iLike]: `%${busqueda}%` } },
-          { cI: { [Op.iLike]: `%${busqueda}%` } },
-        ],
-      }
+      [Op.or]: [
+        { grado: { [Op.iLike]: `%${busqueda}%` } },
+        { firstName: { [Op.iLike]: `%${busqueda}%` } },
+        { lastName: { [Op.iLike]: `%${busqueda}%` } },
+        { cI: { [Op.iLike]: `%${busqueda}%` } },
+      ],
+    }
     : undefined;
 
   // traer pagos con inscripción y usuario
@@ -65,6 +65,8 @@ const getAll = catchError(async (req, res) => {
       "distintivo",
       "moneda",
       "valorDepositado",
+      "entidad",
+      "idDeposito",
       "pagoUrl",
       "verificado",
       "confirmacion",
@@ -361,27 +363,24 @@ const create = catchError(async (req, res) => {
 
       <!-- Cuerpo del mensaje -->
       <div style="padding: 30px; text-align: center;">
-        <h2 style="color: #007BFF;">¡Hola ${user.firstName} ${
-      user.lastName
-    }!</h2>
+        <h2 style="color: #007BFF;">¡Hola ${user.firstName} ${user.lastName
+      }!</h2>
         <p style="font-size: 16px; line-height: 1.6;">
-          Hemos recibido tu comprobante de pago por el curso <strong>"${
-            cursoData.nombre
-          }"</strong>.
+          Hemos recibido tu comprobante de pago por el curso <strong>"${cursoData.nombre
+      }"</strong>.
         </p>
         <p style="font-size: 16px; line-height: 1.6;">
           <strong>Valor depositado:</strong> $${valorDepositado}
         </p>
-        ${
-          incluyeMoneda || incluyeDistintivo
-            ? `<p style="font-size: 16px; line-height: 1.6;">Incluye: ${[
-                incluyeMoneda ? "🪙 Moneda conmemorativa" : "",
-                incluyeDistintivo ? "🎖️ Distintivo" : "",
-              ]
-                .filter(Boolean)
-                .join(" y ")}</p>`
-            : ""
-        }
+        ${incluyeMoneda || incluyeDistintivo
+        ? `<p style="font-size: 16px; line-height: 1.6;">Incluye: ${[
+          incluyeMoneda ? "🪙 Moneda conmemorativa" : "",
+          incluyeDistintivo ? "🎖️ Distintivo" : "",
+        ]
+          .filter(Boolean)
+          .join(" y ")}</p>`
+        : ""
+      }
         <p style="font-size: 16px; line-height: 1.6;">
           Una vez validado el pago, se emitirá tu certificado. En caso de haber solicitado reconocimientos físicos, recibirás otro correo cuando estén disponibles para su retiro.
         </p>
@@ -407,7 +406,7 @@ const create = catchError(async (req, res) => {
   </div>
   `,
   });
-  
+
   const io = req.app.get("io");
   if (io) io.emit("pagoCreado", result);
 
