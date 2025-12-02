@@ -41,6 +41,10 @@ const Variables = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
+    entidad: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
   },
   {
     timestamps: false,
