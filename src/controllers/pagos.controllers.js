@@ -8,6 +8,8 @@ const Inscripcion = require("../models/Inscripcion");
 const Course = require("../models/Course");
 const User = require("../models/User");
 const Certificado = require("../models/Certificado");
+const generarCertificado = require("../utils/generarCertificado");
+
 
 const { Op, Sequelize } = require("sequelize");
 
@@ -452,25 +454,58 @@ const remove = catchError(async (req, res) => {
   return res.sendStatus(204);
 });
 
+
+
+
 const update = catchError(async (req, res) => {
   const { id } = req.params;
 
-  const result = await Pagos.update(req.body, {
+  // 1. Traer el pago ANTES de actualizar
+  const pagoOriginal = await Pagos.findByPk(id);
+
+  if (!pagoOriginal) {
+    return res.status(404).json({ message: "Pago no encontrado" });
+  }
+
+  const verificadoAntes = pagoOriginal.verificado; // puede ser true/false/null
+
+  // 2. Actualizar el pago con los datos del body
+  const [rowsUpdated, pagosActualizados] = await Pagos.update(req.body, {
     where: { id },
     returning: true,
   });
 
-  if (result[0] === 0)
+  if (rowsUpdated === 0) {
     return res.status(404).json({ message: "Pago no encontrado" });
+  }
 
-  const pagoActualizado = result[1][0];
+  const pagoActualizado = pagosActualizados[0];
+  const verificadoDespues = pagoActualizado.verificado;
 
-  // Emitir evento a todos los clientes conectados
+  // 3. Emitir evento de pago actualizado (lo que ya tenías)
   const io = req.app.get("io");
   if (io) io.emit("pagoActualizado", pagoActualizado);
 
+  // 4. Detectar cambio de verificado: false -> true
+  if (!verificadoAntes && verificadoDespues) {
+    try {
+      await generarCertificado(pagoActualizado.id);
+    } catch (error) {
+      console.error("Error generando certificado:", error);
+      // aquí decides si solo logueas o si respondes con error
+      // por ahora no rompemos la respuesta al cliente
+    }
+  }
+
   return res.json(pagoActualizado);
 });
+
+
+
+
+
+
+
 
 module.exports = {
   getAll,
