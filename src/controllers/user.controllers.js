@@ -203,9 +203,8 @@ const getAll = catchError(async (req, res) => {
       const userInscripciones = inscMap[uidStr] || [];
 
       if (search) {
-        const fullName = `${user.grado || user.grado || ""} ${
-          user.firstName || user.firstname || ""
-        } ${user.lastName || user.lastname || ""}`.trim();
+        const fullName = `${user.grado || user.grado || ""} ${user.firstName || user.firstname || ""
+          } ${user.lastName || user.lastname || ""}`.trim();
         if (!fullName.toLowerCase().includes(String(search).toLowerCase()))
           continue;
       }
@@ -225,8 +224,8 @@ const getAll = catchError(async (req, res) => {
           const gradesObj =
             enrolData && userCourseGradesMap[String(moodleUser?.id)]
               ? userCourseGradesMap[String(moodleUser.id)][
-                  String(enrolData.courseid)
-                ] || {}
+              String(enrolData.courseid)
+              ] || {}
               : {};
 
           const pagosList = pagosMap[String(insc.id)] || [];
@@ -554,12 +553,12 @@ const getOne = catchError(async (req, res) => {
     const inscripcionIds = inscripciones.map((i) => i.id);
     const pagos = inscripcionIds.length
       ? await Pagos.findAll({
-          raw: true,
-          where: {
-            inscripcionId: inscripcionIds,
-            confirmacion: true, // solo pagos confirmados
-          },
-        })
+        raw: true,
+        where: {
+          inscripcionId: inscripcionIds,
+          confirmacion: true, // solo pagos confirmados
+        },
+      })
       : [];
 
     const certificados = await Certificado.findAll({
@@ -822,18 +821,25 @@ const getLoggedUser = catchError(async (req, res) => {
 
     const pagos = inscripcionIds.length
       ? await Pagos.findAll({
-          raw: true,
-          where: {
-            inscripcionId: inscripcionIds,
-            confirmacion: true, // solo pagos confirmados
-          },
-        })
+        raw: true,
+        where: {
+          inscripcionId: inscripcionIds,
+          confirmacion: true, // solo pagos confirmados
+        },
+      })
       : [];
 
     const certificados = await Certificado.findAll({
       raw: true,
-      where: { cedula: user.cI },
+      include: [
+        {
+          model: Inscripcion,
+          attributes: [], // para que no meta columnas de Inscripcion en el resultado (porque usas raw)
+          where: { userId: user.id }, // o el campo que tengas, p.ej. idUsuario
+        },
+      ],
     });
+
 
     // Map pagos (pueden ser varios por inscripción)
     const pagosMap = {};
@@ -933,9 +939,8 @@ const sendEmailResetPassword = catchError(async (req, res) => {
 
       <!-- Cuerpo del mensaje -->
       <div style="padding: 30px; text-align: center;">
-        <h1 style="color: #007BFF;">Hola, ${user.firstName} ${
-      user.lastName
-    }</h1>
+        <h1 style="color: #007BFF;">Hola, ${user.firstName} ${user.lastName
+      }</h1>
         <h2 style="font-weight: normal;">¿Olvidaste tu contraseña?</h2>
         <p style="font-size: 16px; line-height: 1.6;">
           No te preocupes. Para restablecer tu contraseña, simplemente haz clic en el siguiente botón:

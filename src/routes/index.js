@@ -8,6 +8,7 @@ const contactanosRouter = require("./contactanos.router");
 const pagosRouter = require("./pagos.router");
 const certificadoRouter = require("./certificado.router");
 const userMRouter = require('./userm.router');
+const institutoRouter = require("./instituto.routes");
 
 const router = express.Router();
 
@@ -20,6 +21,6 @@ router.use(courseRouter);
 router.use(contactanosRouter);
 router.use(pagosRouter);
 router.use(certificadoRouter);
-router.use(userMRouter)
-
+router.use(userMRouter);
+router.use(institutoRouter);
 module.exports = router;

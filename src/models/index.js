@@ -19,6 +19,8 @@ Inscripcion.belongsTo(User);
 User.hasOne(Inscripcion);
 
 // user.model.js
-Certificado.belongsTo(User, { foreignKey: "cedula", targetKey: "cI" });
-User.hasMany(Certificado, { foreignKey: "cedula", sourceKey: "cI" });
+// Certificado.belongsTo(User, { foreignKey: "cedula", targetKey: "cI" });
+// User.hasMany(Certificado, { foreignKey: "cedula", sourceKey: "cI" });
 
+Certificado.belongsTo(Inscripcion);
+Inscripcion.hasOne(Certificado);
