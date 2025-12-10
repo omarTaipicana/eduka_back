@@ -13,6 +13,11 @@ const generarCertificado = require("../utils/generarCertificado");
 
 const { Op, Sequelize } = require("sequelize");
 
+
+
+
+
+
 const getAll = catchError(async (req, res) => {
   const {
     curso,
@@ -49,13 +54,13 @@ const getAll = catchError(async (req, res) => {
   // filtros de User
   const userWhere = busqueda
     ? {
-      [Op.or]: [
-        { grado: { [Op.iLike]: `%${busqueda}%` } },
-        { firstName: { [Op.iLike]: `%${busqueda}%` } },
-        { lastName: { [Op.iLike]: `%${busqueda}%` } },
-        { cI: { [Op.iLike]: `%${busqueda}%` } },
-      ],
-    }
+        [Op.or]: [
+          { grado: { [Op.iLike]: `%${busqueda}%` } },
+          { firstName: { [Op.iLike]: `%${busqueda}%` } },
+          { lastName: { [Op.iLike]: `%${busqueda}%` } },
+          { cI: { [Op.iLike]: `%${busqueda}%` } },
+        ],
+      }
     : undefined;
 
   // traer pagos con inscripción y usuario
@@ -96,19 +101,20 @@ const getAll = catchError(async (req, res) => {
     order: [["createdAt", "DESC"]],
   });
 
-  // traer todos los certificados
+  // 🔁 AHORA certificados se relacionan por inscripcionId
   const certificados = await Certificado.findAll({
-    attributes: ["cedula", "curso", "url"],
+    attributes: ["id", "inscripcionId", "url"], // ya no usamos cedula/curso
+    raw: true,
   });
 
-  // mapear resultados y hacer match con cedula + curso
+  // mapear resultados y hacer match por inscripcionId
   results = results.map((pago) => {
     const inscripcion = pago.inscripcion;
     const user = inscripcion.user;
 
     const cert =
       certificados.find(
-        (c) => c.cedula === user.cI && c.curso === inscripcion.curso
+        (c) => c.inscripcionId === inscripcion.id // clave: relacionar por inscripcion.id
       ) || null;
 
     return {
@@ -124,6 +130,7 @@ const getAll = catchError(async (req, res) => {
 
   return res.json(results);
 });
+
 
 
 

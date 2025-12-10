@@ -8,7 +8,6 @@ const Pagos = require("../models/Pagos");
 const Inscripcion = require("../models/Inscripcion");
 const User = require("../models/User");
 const Course = require("../models/Course");
-const Certificado = require("../models/Certificado");
 
 const firmarPdfFirmaEc = require("./firmarPdfFirmaEc");
 
@@ -20,10 +19,7 @@ module.exports = async function generarCertificado(pagoId) {
     include: [
       {
         model: Inscripcion,
-        include: [
-          { model: User },
-          { model: Course },
-        ],
+        include: [{ model: User }, { model: Course }],
       },
     ],
   });
@@ -38,8 +34,7 @@ module.exports = async function generarCertificado(pagoId) {
 
   const course = inscripcion.course || inscripcion.Course || null;
 
-  // 👇 aquí tomamos en cuenta course.sigla
-  const cursoSigla = course?.sigla || "cdp"; // o "general" si quieres un default distinto
+  const cursoSigla = course?.sigla || "cdp";
 
   const dataCertificado = {
     pagoId: pago.id,
@@ -53,39 +48,48 @@ module.exports = async function generarCertificado(pagoId) {
     cursoSigla,
     fechaPago: pago.createdAt,
     valorDepositado: pago.valorDepositado,
+    grupo: null, // lo rellenamos según el template
   };
 
   console.log("✅ Datos para certificado:", dataCertificado);
 
-  // 2. Ruta de la plantilla según sigla
-  // Desde /utils → ../../uploads/templates/template_<sigla>.pdf
-// 2. Ruta de plantilla según sigla y grupo (por defecto grupo 1)
-const templatesDir = path.join(__dirname, "..", "..", "uploads", "templates");
+  // 2. Ruta de la plantilla según sigla y grupo por defecto (1)
+  const templatesDir = path.join(__dirname, "..", "..", "uploads", "templates");
 
-// 1) Intentar template con grupo 1
-const templateGrupo1 = `template_${cursoSigla}_1.pdf`;
-let templatePath = path.join(templatesDir, templateGrupo1);
-
-if (fs.existsSync(templatePath)) {
-  console.log("🟢 Usando template de grupo 1:", templateGrupo1);
-} else {
-  // 2) Intentar el template normal sin grupo
-  const templateBase = `template_${cursoSigla}.pdf`;
-  templatePath = path.join(templatesDir, templateBase);
+  const templateGrupo1 = `template_${cursoSigla}_1.pdf`;
+  let templatePath = path.join(templatesDir, templateGrupo1);
 
   if (fs.existsSync(templatePath)) {
-    console.log("🟡 Usando template base:", templateBase);
+    console.log("🟢 Usando template de grupo 1:", templateGrupo1);
   } else {
-    // 3) Último fallback: plantilla genérica
-    console.warn("⚠️ No existen plantillas específicas, usando template_general.pdf");
-    templatePath = path.join(templatesDir, "template_general.pdf");
+    const templateBase = `template_${cursoSigla}.pdf`;
+    templatePath = path.join(templatesDir, templateBase);
 
-    if (!fs.existsSync(templatePath)) {
-      throw new Error("❌ No se encontró ninguna plantilla disponible.");
+    if (fs.existsSync(templatePath)) {
+      console.log("🟡 Usando template base:", templateBase);
+    } else {
+      console.warn("⚠️ No existen plantillas específicas, usando template_general.pdf");
+      templatePath = path.join(templatesDir, "template_general.pdf");
+
+      if (!fs.existsSync(templatePath)) {
+        throw new Error("❌ No se encontró ninguna plantilla disponible.");
+      }
     }
   }
-}
 
+  // === Extraer grupo desde el nombre del template usado ===
+  let grupo = null;
+  const templateBaseName = path.basename(templatePath);
+  const matchGrupo = templateBaseName.match(/_(\d+)\.pdf$/);
+
+  if (matchGrupo) {
+    grupo = matchGrupo[1]; // "1", "2", etc.
+    console.log("📌 Grupo detectado desde template:", grupo);
+  } else {
+    console.log("📌 Sin grupo explícito en template, grupo = null");
+  }
+
+  dataCertificado.grupo = grupo;
 
   // 3. Leer la plantilla
   const existingPdfBytes = fs.readFileSync(templatePath);
@@ -93,6 +97,7 @@ if (fs.existsSync(templatePath)) {
   // 4. Cargar el PDF en pdf-lib
   const pdfDoc = await PDFDocument.load(existingPdfBytes);
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
   const pages = pdfDoc.getPages();
   const firstPage = pages[0];
@@ -100,32 +105,22 @@ if (fs.existsSync(templatePath)) {
   const { width, height } = firstPage.getSize();
   console.log("Tamaño página:", width, height);
 
-  // 5. Escribir datos (ajusta coordenadas según tu template_cdp)
-  // ======== NOMBRES Y APELLIDOS CENTRADOS EN DOS LÍNEAS ========
+  // 5. Escribir nombres y apellidos centrados
+  const nombres = user.firstName;
+  const apellidos = user.lastName;
 
-  // 1. Separar nombres y apellidos
-  const nombres = user.firstName;        // ej: "Juan Fernando"
-  const apellidos = user.lastName;       // ej: "Velasco Ibarra"
-
-  // 2. Configuración de tamaños
   const fontSizeNombre = 44;
   const fontSizeApellido = 44;
 
-  // 3. Calcular ancho de cada texto para centrarlo
   const nombreWidth = font.widthOfTextAtSize(nombres, fontSizeNombre);
   const apellidoWidth = font.widthOfTextAtSize(apellidos, fontSizeApellido);
 
-  // 4. Coordenadas Y (ajústalas según tu plantilla)
   const yNombre = 250;
   const yApellido = 200;
 
-  // 5. Calcular posición centrada
   const xNombre = (width - nombreWidth) / 2;
   const xApellido = (width - apellidoWidth) / 2;
 
-  // 6. Dibujar nombres y apellidos centrados
-
-const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   firstPage.drawText(nombres, {
     x: xNombre,
     y: yNombre,
@@ -142,11 +137,10 @@ const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     color: rgb(0, 0, 0),
   });
 
-
   // 6. Guardar el nuevo PDF en bytes
   const pdfBytes = await pdfDoc.save();
 
-  // 7. Carpeta de salida por curso (ej: uploads/certificados/cdp)
+  // 7. Carpeta de salida por curso
   const outputDir = path.join(
     __dirname,
     "..",
@@ -160,37 +154,34 @@ const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     fs.mkdirSync(outputDir, { recursive: true });
   }
 
-  const fileName = `${dataCertificado.cedula}_${dataCertificado.cursoSigla}.pdf`;
+  //  👉 Nombre de archivo incluye el grupo si existe: cedula_sigla_g1.pdf
+  const grupoSuffix = grupo ? `_g${grupo}` : "";
+  const fileName = `${dataCertificado.cedula}_${dataCertificado.cursoSigla}${grupoSuffix}.pdf`;
   const outputPath = path.join(outputDir, fileName);
 
   fs.writeFileSync(outputPath, pdfBytes);
 
   console.log("📄 Certificado generado (sin firma) en:", outputPath);
 
-  // 8. Firmar el PDF con tu .p12 usando FirmaEC / servicio de firma
+  // 8. Firmar PDF (mock o real según tu firmarPdfFirmaEc)
   let signedPath;
   try {
     signedPath = await firmarPdfFirmaEc(outputPath, dataCertificado);
     console.log("✅ Certificado firmado en:", signedPath);
   } catch (err) {
     console.error("❌ Error firmando el certificado:", err);
-    // aquí decides: lanzar error o dejarlo sin firma
-    // throw err;
-    signedPath = outputPath; // por ahora, si falla la firma, al menos existe el PDF
+    signedPath = outputPath;
   }
 
-  // Borrar el PDF sin firmar
-try {
-  if (fs.existsSync(outputPath) && outputPath !== signedPath) {
-    fs.unlinkSync(outputPath);
-    console.log("🗑️ Archivo sin firma eliminado:", outputPath);
+  // 9. Borrar el PDF sin firma si se generó otro archivo firmado
+  try {
+    if (fs.existsSync(outputPath) && outputPath !== signedPath) {
+      fs.unlinkSync(outputPath);
+      console.log("🗑️ Archivo sin firma eliminado:", outputPath);
+    }
+  } catch (err) {
+    console.error("⚠️ No se pudo eliminar el PDF sin firma:", err);
   }
-} catch (err) {
-  console.error("⚠️ No se pudo eliminar el PDF sin firma:", err);
-}
 
-
-
-
-  return { outputPath: signedPath, fileName, dataCertificado };
+  return { outputPath: signedPath, fileName: path.basename(signedPath), dataCertificado };
 };

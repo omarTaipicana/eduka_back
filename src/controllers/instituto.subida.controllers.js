@@ -8,6 +8,8 @@ const Inscripcion = require("../models/Inscripcion");
 const User = require("../models/User");
 // const sendEmail = require("../utils/sendEmail"); // lo usamos luego
 
+// ... cabecera igual que ya tienes ...
+
 const subirCertificadosFirmados = catchError(async (req, res) => {
   const { sigla } = req.params;
 
@@ -55,7 +57,7 @@ const subirCertificadosFirmados = catchError(async (req, res) => {
     const fileName = entry.name;
     const lower = fileName.toLowerCase();
 
-    // 1) Buscar cedula (10 dígitos en cualquier parte del nombre)
+    // 1) Buscar cedula (10 dígitos)
     const match = fileName.match(/(\d{10})/);
     if (!match) {
       reporte.erroneos.push({
@@ -67,7 +69,14 @@ const subirCertificadosFirmados = catchError(async (req, res) => {
 
     const cedula = match[1];
 
-    // 2) Validar que el nombre parezca tener la segunda firma
+    // 2) Leer grupo desde el nombre si viene tipo _g1
+    let grupo = null;
+    const matchGrupo = fileName.match(/_g(\d+)/i);
+    if (matchGrupo) {
+      grupo = matchGrupo[1]; // "1", "2", etc.
+    }
+
+    // 3) Validar segunda firma por nombre
     const firmadoInstituto =
       lower.includes("firma") ||
       lower.includes("signed") ||
@@ -84,7 +93,7 @@ const subirCertificadosFirmados = catchError(async (req, res) => {
       continue;
     }
 
-    // 3) Buscar usuario por cédula
+    // 4) Buscar usuario por cédula
     const user = await User.findOne({ where: { cI: cedula } });
     if (!user) {
       reporte.erroneos.push({
@@ -95,7 +104,7 @@ const subirCertificadosFirmados = catchError(async (req, res) => {
       continue;
     }
 
-    // 4) Buscar inscripción por userId + curso (sigla)
+    // 5) Buscar inscripción por userId + curso
     const inscripcion = await Inscripcion.findOne({
       where: { userId: user.id, curso: sigla },
     });
@@ -109,12 +118,12 @@ const subirCertificadosFirmados = catchError(async (req, res) => {
       continue;
     }
 
-    // 5) Ver si ya hay certificado final para esta inscripción+curso
+    // 6) Ver si ya hay certificado final
     const certExistente = await Certificado.findOne({
       where: { inscripcionId: inscripcion.id, curso: sigla },
     });
 
-    if (certExistente && certExistente.estado === "firmado_instituto") {
+    if (certExistente && certExistente.entregado) {
       reporte.duplicados.push({
         archivo: fileName,
         cedula,
@@ -123,49 +132,58 @@ const subirCertificadosFirmados = catchError(async (req, res) => {
       continue;
     }
 
-    // 6) Guardar PDF final en carpeta certificados_firmados/<sigla>/
+    // 7) Guardar PDF final
     const finalFileName = `${cedula}_${sigla}_final.pdf`;
     const finalPath = path.join(carpetaFinal, finalFileName);
 
     fs.writeFileSync(finalPath, entry.getData());
 
-    // 7) Borrar certificado “simple” de EDUKA si existe
-    const posibleSimple1 = path.join(carpetaEduka, `${cedula}_${sigla}_firmado.pdf`);
+    // 8) Borrar certificados simples de EDUKA si existen
+    const posibleSimple1 = path.join(
+      carpetaEduka,
+      `${cedula}_${sigla}_g${grupo}_firmado.pdf`
+    );
     const posibleSimple2 = path.join(carpetaEduka, `${cedula}_${sigla}.pdf`);
+    const posibleSimple3 = path.join(
+      carpetaEduka,
+      `${cedula}_${sigla}_g${grupo}.pdf`
+    );
 
-    [posibleSimple1, posibleSimple2].forEach((p) => {
-      if (fs.existsSync(p)) {
+    [posibleSimple1, posibleSimple2, posibleSimple3].forEach((p) => {
+      if (p && fs.existsSync(p)) {
         fs.unlinkSync(p);
       }
     });
 
-    // 8) URL pública del certificado final
+    // 9) URL pública
     const relativeUrl = `/uploads/certificados_firmados/${sigla}/${finalFileName}`;
+    const host = `${req.protocol}://${req.get("host")}`;
+    const absoluteUrl = `${host}${relativeUrl}`;
 
-    // 9) Crear o actualizar Certificado en BD
+    // 10) Crear o actualizar Certificado en BD con grupo
     if (certExistente) {
-      certExistente.url = relativeUrl;
-      certExistente.estado = "firmado_instituto";
+      certExistente.url = absoluteUrl;
+      certExistente.entregado = true;
+      if (grupo) certExistente.grupo = grupo;
       await certExistente.save();
     } else {
       await Certificado.create({
         inscripcionId: inscripcion.id,
         curso: sigla,
-        grupo: null, // luego si quieres lo llenamos por template
-        url: relativeUrl,
-        entregado: true
+        grupo, // ← grupo proveniente del template (via nombre de archivo)
+        url: absoluteUrl,
+        entregado: true,
       });
     }
 
-    // 10) Agregar al reporte de procesados
     reporte.procesados.push({
       archivo: fileName,
       cedula,
+      grupo,
       guardadoComo: finalFileName,
     });
   }
 
-  // borrar ZIP temporal
   try {
     fs.unlinkSync(zipPath);
   } catch (err) {
