@@ -366,13 +366,13 @@ const create = catchError(async (req, res) => {
     <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); overflow: hidden;">
       
       <!-- Encabezado con logo -->
-      <div style="text-align: center; background-color: #007BFF; padding: 20px;">
-        <img src="https://res.cloudinary.com/desgmhmg4/image/upload/v1747890355/eduka_sf_gaus5o.png" alt="EDUKA" style="width: 150px;" />
+      <div style="text-align: center; background-color: #1B326B; padding: 20px;">
+        <img src="https://res.cloudinary.com/desgmhmg4/image/upload/v1765358711/eduka_2026_kh3h9e.png" alt="EDUKA" style="width: 150px;" />
       </div>
 
       <!-- Cuerpo del mensaje -->
       <div style="padding: 30px; text-align: center;">
-        <h2 style="color: #007BFF;">¡Hola ${user.firstName} ${user.lastName
+        <h2 style="color: #1B326B;">¡Hola ${user.firstName} ${user.lastName
       }!</h2>
         <p style="font-size: 16px; line-height: 1.6;">
           Hemos recibido tu comprobante de pago por el curso <strong>"${cursoData.nombre
@@ -396,7 +396,7 @@ const create = catchError(async (req, res) => {
 
         <!-- Botón para ver comprobante -->
         <div style="margin-top: 30px;">
-          <a href="${url}" target="_blank" style="background-color: #007BFF; color: white; padding: 12px 20px; border-radius: 5px; text-decoration: none;">
+          <a href="${url}" target="_blank" style="background-color: #1B326B; color: white; padding: 12px 20px; border-radius: 5px; text-decoration: none;">
             Ver comprobante de pago
           </a>
         </div>

@@ -74,11 +74,26 @@ const descargarCertificadosSeleccionados = catchError(async (req, res) => {
   }
 
   // Headers de respuesta ZIP
-  res.setHeader("Content-Type", "application/zip");
-  res.setHeader(
-    "Content-Disposition",
-    `attachment; filename=certificados_${sigla}.zip`
-  );
+const now = new Date();
+
+// Formato YYYY-MM-DD
+const fecha = now.toISOString().split("T")[0];
+
+// Formato HH-MM-SS
+const hora = now
+  .toTimeString()
+  .split(" ")[0]      // "14:32:55"
+  .replace(/:/g, "-"); // "14-32-55"
+
+const filename = `certificados_${sigla}_${fecha}_${hora}.zip`;
+
+// Headers ZIP
+res.setHeader("Content-Type", "application/zip");
+res.setHeader(
+  "Content-Disposition",
+  `attachment; filename=${filename}`
+);
+
 
   const archive = archiver("zip", { zlib: { level: 9 } });
 

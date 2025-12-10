@@ -20,6 +20,12 @@ const Course = sequelize.define("course", {
     type: DataTypes.TEXT,
     allowNull: false,
   },
+  vigente: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: true,
+  },
+
 });
 
 module.exports = Course;

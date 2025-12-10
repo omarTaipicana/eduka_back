@@ -372,15 +372,15 @@ const create = catchError(async (req, res) => {
     <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 10px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); overflow: hidden;">
       
       <!-- Header -->
-      <div style="text-align: center; background-color: #007BFF; padding: 25px;">
-        <img src="https://res.cloudinary.com/desgmhmg4/image/upload/v1747890355/eduka_sf_gaus5o.png" alt="EDUKA" style="width: 160px;" />
+      <div style="text-align: center; background-color: #1B326B; padding: 25px;">
+        <img src="https://res.cloudinary.com/desgmhmg4/image/upload/v1765358711/eduka_2026_kh3h9e.png" alt="EDUKA" style="width: 160px;" />
       </div>
       
       <!-- Body -->
       <div style="padding: 35px; text-align: center;">
-        <h1 style="color: #007BFF; margin-bottom: 10px;">¡Hola ${nombres} ${apellidos}!</h1>
+        <h1 style="color: #1B326B; margin-bottom: 10px;">¡Hola ${nombres} ${apellidos}!</h1>
         <h2 style="font-weight: normal; margin-bottom: 15px;">¡Felicitaciones por tu inscripción!</h2>
-        <h2 style="color: #007BFF; margin-bottom: 25px;">"${course.nombre}"</h2>
+        <h2 style="color: #1B326B; margin-bottom: 25px;">"${course.nombre}"</h2>
         
         <p style="font-size: 16px; line-height: 1.6; margin-bottom: 25px;">
           Nos alegra que hayas elegido este curso para ampliar tus conocimientos. A continuación encontrarás tus credenciales de acceso a la plataforma:
@@ -396,7 +396,7 @@ const create = catchError(async (req, res) => {
         <p style="text-align: center; margin-bottom: 35px;">
           <a href="${cursoUrl}" target="_blank"
             style="
-              background-color: #007BFF;
+              background-color: #1B326B;
               color: #ffffff;
               padding: 14px 30px;
               text-decoration: none;
@@ -443,7 +443,7 @@ const create = catchError(async (req, res) => {
         <p style="margin-top: 10px;">
           <a href="https://eduka-educ.com" target="_blank"
             style="
-              background-color: #007BFF;
+              background-color: #1B326B;
               color: #ffffff;
               padding: 10px 24px;
               text-decoration: none;

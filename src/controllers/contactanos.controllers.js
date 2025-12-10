@@ -10,22 +10,24 @@ const getAll = catchError(async (req, res) => {
 const create = catchError(async (req, res) => {
   const result = await Contactanos.create(req.body);
   const { email, nombres, mensaje } = req.body;
+  const edukaEmail = process.env.EDUKA_EMAIL ;
+
 
   await sendEmail({
-    to: "edukacorporacion@edukacorporacioneducativa.com", // ✅ Tu correo personal
+    to: edukaEmail, // ✅ Tu correo personal
     subject: "Alguien intenta contactar con EDUKA", // ✅ Asunto personalizado
     html: `
   <div style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px; color: #333;">
     <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); overflow: hidden;">
       
       <!-- Encabezado con logo -->
-      <div style="text-align: center; background-color: #007BFF; padding: 20px;">
-        <img src="https://res.cloudinary.com/desgmhmg4/image/upload/v1747890355/eduka_sf_gaus5o.png" alt="EDUKA" style="width: 150px;" />
+      <div style="text-align: center; background-color: #1B326B; padding: 20px;">
+        <img src="https://res.cloudinary.com/desgmhmg4/image/upload/v1765358711/eduka_2026_kh3h9e.png" alt="EDUKA" style="width: 150px;" />
       </div>
 
       <!-- Cuerpo del mensaje -->
       <div style="padding: 30px;">
-        <h2 style="color: #007BFF; text-align: center;">Nuevo contacto desde el formulario EDUKA</h2>
+        <h2 style="color: #1B326B; text-align: center;">Nuevo contacto desde el formulario EDUKA</h2>
         
         <p><strong>Nombre:</strong> ${nombres}</p>
         <p><strong>Correo:</strong> ${email}</p>
@@ -55,11 +57,11 @@ const create = catchError(async (req, res) => {
     html: `
     <div style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px; color: #333;">
       <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); overflow: hidden;">
-        <div style="text-align: center; background-color: #007BFF; padding: 20px;">
-          <img src="https://res.cloudinary.com/desgmhmg4/image/upload/v1747890355/eduka_sf_gaus5o.png" alt="EDUKA" style="width: 150px;" />
+        <div style="text-align: center; background-color: #1B326B; padding: 20px;">
+          <img src="https://res.cloudinary.com/desgmhmg4/image/upload/v1765358711/eduka_2026_kh3h9e.png" alt="EDUKA" style="width: 150px;" />
         </div>
         <div style="padding: 30px; text-align: center;">
-          <h2 style="color: #007BFF;">¡Hola ${nombres}!</h2>
+          <h2 style="color: #1B326B;">¡Hola ${nombres}!</h2>
           <p style="font-size: 16px; line-height: 1.6;">
             Gracias por escribirnos. Hemos recibido tu mensaje y en breve uno de nuestros representantes se pondrá en contacto contigo.
           </p>

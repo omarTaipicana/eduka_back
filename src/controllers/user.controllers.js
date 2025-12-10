@@ -915,6 +915,12 @@ const getLoggedUser = catchError(async (req, res) => {
   }
 });
 
+
+
+
+
+
+
 const sendEmailResetPassword = catchError(async (req, res) => {
   const { email, frontBaseUrl } = req.body;
   const user = await User.findOne({ where: { email: email } });
