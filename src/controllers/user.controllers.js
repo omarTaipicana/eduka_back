@@ -323,6 +323,9 @@ const getAll = catchError(async (req, res) => {
   }
 });
 
+
+
+
 const create = catchError(async (req, res) => {
   const { cI, email, password, firstName, lastName, frontBaseUrl } = req.body;
 
