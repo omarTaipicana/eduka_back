@@ -3,6 +3,9 @@ const fs = require("fs");
 const path = require("path");
 const { execFile } = require("child_process");
 
+// ✅ Usa el bin desde .env (venv recomendado) o cae al comando "pyhanko"
+const PYHANKO_BIN = process.env.PYHANKO_BIN || "pyhanko";
+
 function run(cmd, args) {
   return new Promise((resolve, reject) => {
     execFile(cmd, args, { maxBuffer: 20 * 1024 * 1024 }, (err, stdout, stderr) => {
@@ -17,14 +20,17 @@ module.exports = async function firmarPdfFirmaEcUbuntu(pdfPath, opts = {}) {
 
   const p12Path = process.env.FIRMA_P12_PATH;
   const p12Pass = process.env.FIRMA_P12_PASSWORD;
-  if (!p12Path || !fs.existsSync(p12Path)) throw new Error("FIRMA_P12_PATH inválido o no existe.");
+
+  if (!p12Path || !fs.existsSync(p12Path)) {
+    throw new Error("FIRMA_P12_PATH inválido o no existe.");
+  }
   if (!p12Pass) throw new Error("FIRMA_P12_PASSWORD falta en .env");
 
-  // ✅ AQUÍ DEFINES COORDENADAS (por defecto)
+  // ✅ Coordenadas de la firma (PDF origin abajo-izquierda)
   // page: 1 (o -1 para última)
   // rect: [x1, y1, x2, y2]
   const page = opts.page ?? 1;
-  const rect = opts.rect ?? [50, 60, 250, 140]; // <<-- cambia esto
+  const rect = opts.rect ?? [560, 40, 810, 120]; // sugerido para tu tamaño 830.64 x 595.32 (abajo-derecha)
   const fieldName = opts.fieldName ?? "Signature1";
 
   const ext = path.extname(pdfPath);
@@ -33,10 +39,10 @@ module.exports = async function firmarPdfFirmaEcUbuntu(pdfPath, opts = {}) {
 
   // 1) Crear campo de firma con coordenadas
   const fieldArg = `${page}/${rect.join(",")}/${fieldName}`;
-  await run("pyhanko", ["sign", "addfields", "--field", fieldArg, pdfPath, withField]);
+  await run(PYHANKO_BIN, ["sign", "addfields", "--field", fieldArg, pdfPath, withField]);
 
   // 2) Firmar el PDF usando el .p12
-  await run("pyhanko", [
+  await run(PYHANKO_BIN, [
     "sign",
     "addsig",
     "--field",
@@ -50,5 +56,6 @@ module.exports = async function firmarPdfFirmaEcUbuntu(pdfPath, opts = {}) {
   ]);
 
   if (!fs.existsSync(signedPath)) throw new Error("No se generó el PDF firmado: " + signedPath);
+
   return signedPath;
 };
