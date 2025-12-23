@@ -21,11 +21,11 @@ const Pagos = sequelize.define("pagos", {
     allowNull: false,
   },
   entidad: {
-    type: DataTypes.INTEGER,
+    type: DataTypes.STRING,
     allowNull: true,
   },
   idDeposito: {
-    type: DataTypes.INTEGER,
+    type: DataTypes.STRING,
     allowNull: true,
   },
   confirmacion: {
