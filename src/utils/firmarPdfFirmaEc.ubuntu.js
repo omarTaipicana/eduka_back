@@ -26,7 +26,7 @@ module.exports = async function firmarPdfFirmaEcUbuntu(pdfPath, opts = {}) {
   const signedPath = pdfPath.replace(ext, `_firmado${ext}`);
 
   const page = opts.page ?? 1;
-  const rect = opts.rect ?? [10, 240, 12, 242];
+  const rect = opts.rect ?? [560, 40, 810, 120]; // abajo-derecha
   const rectStr = rect.join(",");
 
   await run(PYTHON_BIN, [
