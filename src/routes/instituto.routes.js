@@ -28,7 +28,7 @@ institutoRouter.post(
 // POST → subir ZIP con certificados firmados final del instituto
 institutoRouter.post(
   "/instituto/certificados/:sigla/subir",
-  uploadCertificados.single("archivo"),
+  uploadCertificados.single("zip"),
   subirCertificadosFirmados
 );
 
