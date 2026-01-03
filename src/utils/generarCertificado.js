@@ -122,6 +122,8 @@ module.exports = async function generarCertificado(pagoId) {
   const pdfDoc = await PDFDocument.load(existingPdfBytes);
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
 
   const firstPage = pdfDoc.getPages()[0];
   const { width, height } = firstPage.getSize();
@@ -130,32 +132,58 @@ module.exports = async function generarCertificado(pagoId) {
   // 5) Pintar nombres/apellidos (ajusta coords según tu template)
   const nombres = user.firstName || "";
   const apellidos = user.lastName || "";
+  const nombreCompleto = `${user.firstName || ""} ${user.lastName || ""}`.trim();
 
-  const fontSizeNombre = 44;
-  const fontSizeApellido = 44;
+
+  const fontSizeNombre = 40;
+  const fontSizeApellido = 40;
+  const fontSizeNombreCompleto = 33;
+  const minFontSize = 24;
+  const maxWidth = width - 100;
 
   const nombreWidth = font.widthOfTextAtSize(nombres, fontSizeNombre);
   const apellidoWidth = font.widthOfTextAtSize(apellidos, fontSizeApellido);
+  let nombreCompletoWidth = font.widthOfTextAtSize(nombreCompleto, fontSizeNombreCompleto);
+
+  while (nombreCompletoWidth > maxWidth && fontSizeNombreCompleto > minFontSize) {
+    fontSizeNombreCompleto -= 1;
+    nombreCompletoWidth = fontRegular.widthOfTextAtSize(
+      nombreCompleto,
+      fontSizeNombreCompleto
+    );
+  }
 
   const yNombre = 250;
   const yApellido = 200;
+  const yNombreCompleto = 260;
+
 
   const xNombre = (width - nombreWidth) / 2;
   const xApellido = (width - apellidoWidth) / 2;
+  const xNombreCompleto = (width - nombreCompletoWidth) / 2;
 
-  firstPage.drawText(nombres, {
-    x: xNombre,
-    y: yNombre,
-    size: fontSizeNombre,
-    font: fontBold,
-    color: rgb(0, 0, 0),
-  });
 
-  firstPage.drawText(apellidos, {
-    x: xApellido,
-    y: yApellido,
-    size: fontSizeApellido,
-    font: fontBold,
+  // firstPage.drawText(nombres, {
+  //   x: xNombre,
+  //   y: yNombre,
+  //   size: fontSizeNombre,
+  //   font: fontBold,
+  //   color: rgb(0, 0, 0),
+  // });
+
+  // firstPage.drawText(apellidos, {
+  //   x: xApellido,
+  //   y: yApellido,
+  //   size: fontSizeApellido,
+  //   font: fontBold,
+  //   color: rgb(0, 0, 0),
+  // });
+
+  firstPage.drawText(nombreCompleto, {
+    x: xNombreCompleto,
+    y: yNombreCompleto,
+    size: fontSizeNombreCompleto,
+    font: fontRegular,
     color: rgb(0, 0, 0),
   });
 
