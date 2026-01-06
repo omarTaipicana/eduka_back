@@ -1,10 +1,72 @@
 const catchError = require('../utils/catchError');
-const Certificado = require('../models/Certificado');
+const { col } = require("sequelize");
+const Certificado = require("../models/Certificado");
+const Inscripcion = require("../models/Inscripcion");
+const Pagos = require("../models/Pagos");
+const User = require("../models/User");
 
-const getAll = catchError(async(req, res) => {
-    const results = await Certificado.findAll();
-    return res.json(results);
+const getAll = catchError(async (req, res) => {
+  const rows = await Certificado.findAll({
+    include: [
+      {
+        model: Inscripcion,
+        as: "inscripcion",
+        include: [
+          {
+            model: User,
+            as: "user",
+            attributes: ["cI", "firstName", "lastName", "grado"],
+          },
+          {
+            model: Pagos,
+            as: "pago",
+            attributes: ["pagoUrl", "valorDepositado"],
+            where: { verificado: true },
+            required: false,
+          },
+        ],
+      },
+    ],
+  });
+
+  const results = rows.map((r) => {
+    const obj = r.get({ plain: true });
+
+    const u = obj.inscripcion?.user;
+
+    // ✅ leer el alias correcto: "pago" (no "pagos")
+    const pagoRaw = obj.inscripcion?.pago;
+    const pagosArr = Array.isArray(pagoRaw) ? pagoRaw : pagoRaw ? [pagoRaw] : [];
+
+    // si quieres una sola URL, toma la última
+    const pagoUrl = pagosArr.length ? pagosArr[pagosArr.length - 1].pagoUrl : null;
+    const deposito = pagosArr.length ? pagosArr[pagosArr.length - 1].valorDepositado : null;
+
+    return {
+      id: obj.id,
+      curso: obj.curso,
+      grupo: obj.grupo,
+      certificadoCreatedAt: obj.createdAt,
+      url: obj.url,
+      entregado: obj.entregado,
+
+      cedula: u?.cI ?? null,
+      nombres: u?.firstName ?? null,
+      apellidos: u?.lastName ?? null,
+      grado: u?.grado ?? null,
+
+      urlDeposito: pagoUrl,
+      deposito: deposito,
+    };
+  });
+
+  return res.json(results);
 });
+
+
+
+
+
 
 const create = catchError(async(req, res) => {
     const result = await Certificado.create(req.body);

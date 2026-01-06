@@ -23,8 +23,12 @@ const getAll = catchError(async (req, res) => {
   return res.json(results);
 });
 
+
+
+
+
 const getDashboardInscripciones = catchError(async (req, res) => {
-  const { desde, hasta } = req.query;
+  const { desde, hasta, curso } = req.query;
 
   // Filtro de fechas en Inscripcion
   const where = {};
@@ -38,15 +42,20 @@ const getDashboardInscripciones = catchError(async (req, res) => {
     }
   }
 
+  // ✅ Filtro por curso
+  if (curso && curso !== "todos") {
+    where.curso = curso;
+  }
+
   // Traemos las inscripciones con datos del usuario relacionados
   const inscripciones = await Inscripcion.findAll({
-    attributes: ["createdAt"], // solo lo necesario
+    attributes: ["createdAt", "curso"], // ✅ agrego curso para conteos
     where,
     include: [
       {
         model: User,
-        as: "user", // debe coincidir con tu alias en la relación
-        attributes: ["grado", "subsistema"], // para los gráficos
+        as: "user", // debe coincidir con tu alias
+        attributes: ["grado", "subsistema"],
       },
     ],
   });
@@ -67,6 +76,16 @@ const getDashboardInscripciones = catchError(async (req, res) => {
     inscritosPorSubsistema[subsistema] =
       (inscritosPorSubsistema[subsistema] || 0) + 1;
   });
+
+  // ✅ Conteo por curso (para gráfico)
+  const inscritosPorCursoCount = {};
+  inscripciones.forEach((i) => {
+    const c = i.curso || "Sin curso";
+    inscritosPorCursoCount[c] = (inscritosPorCursoCount[c] || 0) + 1;
+  });
+  const inscritosPorCurso = Object.entries(inscritosPorCursoCount).map(
+    ([curso, cantidad]) => ({ curso, cantidad })
+  );
 
   // Conteo por día
   const inscritosPorDia = {};
@@ -109,15 +128,15 @@ const getDashboardInscripciones = catchError(async (req, res) => {
     inscritosPorSubsistema: Object.entries(inscritosPorSubsistema).map(
       ([subsistema, cantidad]) => ({ subsistema, cantidad })
     ),
-    inscritosPorDia: Object.entries(inscritosPorDia).map(
-      ([fecha, cantidad]) => ({
-        fecha,
-        cantidad,
-      })
-    ),
+    inscritosPorCurso, // ✅ nuevo
+    inscritosPorDia: Object.entries(inscritosPorDia).map(([fecha, cantidad]) => ({
+      fecha,
+      cantidad,
+    })),
     inscritosPorFranjaHoraria,
   });
 });
+
 
 
 

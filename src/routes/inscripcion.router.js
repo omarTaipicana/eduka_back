@@ -1,5 +1,7 @@
 const { getAll, getDashboardInscripciones, getDashboardObservaciones, validateUser, create, getOne, remove, update } = require('../controllers/inscripcion.controllers');
 const express = require('express');
+const verifyJWT = require("../utils/verifyJWT")
+
 
 const inscripcionRouter = express.Router();
 
@@ -19,6 +21,6 @@ inscripcionRouter.route('/validate')
 inscripcionRouter.route('/inscripcion/:id')
     .get(getOne)
     .delete(remove)
-    .put(update);
+    .put(verifyJWT, update);
 
 module.exports = inscripcionRouter;

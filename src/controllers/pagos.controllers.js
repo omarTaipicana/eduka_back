@@ -476,14 +476,66 @@ const update = catchError(async (req, res) => {
 
   const verificadoAntes = pagoOriginal.verificado; // puede ser true/false/null
 
-  // 2. Actualizar el pago con los datos del body
-  const [rowsUpdated, pagosActualizados] = await Pagos.update(req.body, {
-    where: { id },
-    returning: true,
-  });
+  // =========================
+  // ✅ VALIDACIÓN NUEVA (entidad + idDeposito únicos)
+  // sin romper tu funcionalidad actual
+  // =========================
 
-  if (rowsUpdated === 0) {
-    return res.status(404).json({ message: "Pago no encontrado" });
+  // Tomamos valores "finales" que quedarían tras el update:
+  const entidadFinal =
+    req.body.entidad !== undefined ? req.body.entidad : pagoOriginal.entidad;
+  const idDepositoFinal =
+    req.body.idDeposito !== undefined
+      ? req.body.idDeposito
+      : pagoOriginal.idDeposito;
+
+  // Solo validamos si ambos existen (no vacíos)
+  if (
+    entidadFinal !== undefined &&
+    entidadFinal !== null &&
+    String(entidadFinal).trim() !== "" &&
+    idDepositoFinal !== undefined &&
+    idDepositoFinal !== null &&
+    String(idDepositoFinal).trim() !== ""
+  ) {
+    const existe = await Pagos.findOne({
+      where: {
+        entidad: entidadFinal,
+        idDeposito: idDepositoFinal,
+        id: { [Op.ne]: id }, // 👈 excluye el mismo pago
+      },
+    });
+
+    if (existe) {
+      return res.status(400).json({
+        message:
+          "Ya existe un pago registrado con ese ID de depósito para la entidad seleccionada.",
+      });
+    }
+  }
+
+  // 2. Actualizar el pago con los datos del body
+  let pagosActualizados;
+  try {
+    const [rowsUpdated, updated] = await Pagos.update(req.body, {
+      where: { id },
+      returning: true,
+    });
+
+    if (rowsUpdated === 0) {
+      return res.status(404).json({ message: "Pago no encontrado" });
+    }
+
+    pagosActualizados = updated;
+  } catch (error) {
+    // Si tienes índice único en BD, esto captura el choque también
+    if (error?.name === "SequelizeUniqueConstraintError") {
+      return res.status(400).json({
+        message:
+          "Ya existe un pago registrado con ese ID de depósito para la entidad seleccionada.",
+      });
+    }
+    throw error;
   }
 
   const pagoActualizado = pagosActualizados[0];
@@ -499,8 +551,7 @@ const update = catchError(async (req, res) => {
       await generarCertificado(pagoActualizado.id);
     } catch (error) {
       console.error("Error generando certificado:", error);
-      // aquí decides si solo logueas o si respondes con error
-      // por ahora no rompemos la respuesta al cliente
+      // no rompemos la respuesta al cliente
     }
   }
 

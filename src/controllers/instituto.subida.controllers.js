@@ -308,6 +308,8 @@ try {
       where: { sigla: sigla },
     });
 
+    const acadexEmail = "acadexeduc@gmail.com"
+
 
     const { procesados, duplicados, ignorados, erroneos } = reporte;
 
@@ -397,7 +399,7 @@ try {
         : "";
 
     await sendEmail({
-      to: `${institEmail}, ${edukaEmail}`,
+      to: `${institEmail}, ${edukaEmail}, ${acadexEmail}`,
       subject: `Resumen de carga de certificados firmados - Curso ${curso.nombre.toUpperCase()}`,
       html: `
       <div style="font-family: Arial, sans-serif; background-color: #f4f6f8; padding: 20px; color: #333;">

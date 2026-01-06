@@ -174,16 +174,17 @@ const getAll = catchError(async (req, res) => {
       pagosMap[key].push(p);
     });
 
+
     const certMap = {};
     certificadosData.forEach((c) => {
-      const ced = String(c.cedula || "")
-        .trim()
-        .toLowerCase();
-      const cur = String(c.curso || "")
-        .trim()
-        .toLowerCase();
-      if (ced && cur) certMap[`${ced}-${cur}`] = c;
+      const inscId = c.inscripcionId != null ? String(c.inscripcionId) : null;
+      if (!inscId) return;
+
+      // si llegaran a existir varios certificados por inscripcion, aquí se queda el último
+      certMap[inscId] = c;
     });
+
+
 
     // --- 7. Filtros
     const hasCourseFilters = [
@@ -230,16 +231,14 @@ const getAll = catchError(async (req, res) => {
 
           const pagosList = pagosMap[String(insc.id)] || [];
 
-          const cedKey = String(user.cI || user.cedula || "")
-            .trim()
-            .toLowerCase();
-          const certKey = `${cedKey}-${String(insc.curso || "")
-            .trim()
-            .toLowerCase()}`;
-          const cert = certMap[certKey];
+
+
+          const cert = certMap[String(insc.id)];
           const certData = cert
-            ? { grupo: cert.verificado, fecha: cert.fecha, url: cert.url }
+            ? { grupo: cert.grupo, fecha: cert.createdAt, url: cert.url }
             : null;
+
+
 
           return {
             curso: insc.curso,
@@ -564,10 +563,13 @@ const getOne = catchError(async (req, res) => {
       })
       : [];
 
-    const certificados = await Certificado.findAll({
-      raw: true,
-      where: { cedula: user.cI },
-    });
+    const certificados = inscripcionIds.length
+      ? await Certificado.findAll({
+        raw: true,
+        where: { inscripcionId: inscripcionIds },
+      })
+      : [];
+
 
     // Maps
     const pagosMap = {};
@@ -578,11 +580,13 @@ const getOne = catchError(async (req, res) => {
 
     const certMap = {};
     certificados.forEach((c) => {
-      const key = `${String(c.cedula).trim().toLowerCase()}-${String(c.curso)
-        .trim()
-        .toLowerCase()}`;
-      certMap[key] = c;
+      const inscId = c.inscripcionId != null ? String(c.inscripcionId) : null;
+      if (!inscId) return;
+
+      // si hubiera más de uno, se queda el último
+      certMap[inscId] = c;
     });
+
 
     // ========================== COURSES MERGED ==========================
     const allCourses = await Course.findAll({ raw: true });
@@ -596,19 +600,15 @@ const getOne = catchError(async (req, res) => {
       const pagosList = pagosMap[insc.id] || [];
 
       let certData = {};
-      const certKey = `${String(user.cI).trim().toLowerCase()}-${String(
-        insc.curso
-      )
-        .trim()
-        .toLowerCase()}`;
-      const cert = certMap[certKey];
+      const cert = certMap[String(insc.id)];
       if (cert) {
         certData = {
-          grupo: cert.verificado,
-          fecha: cert.fecha,
+          grupo: cert.grupo,
+          fecha: cert.createdAt,
           url: cert.url,
         };
       }
+
 
       return {
         curso: insc.curso,
@@ -665,6 +665,7 @@ const update = catchError(async (req, res) => {
     province,
     city,
     genre,
+    role,
     grado,
     subsistema,
     isVerified,
@@ -680,6 +681,7 @@ const update = catchError(async (req, res) => {
       province,
       city,
       genre,
+      role,
       grado,
       subsistema,
       isVerified,
@@ -832,16 +834,12 @@ const getLoggedUser = catchError(async (req, res) => {
       })
       : [];
 
-    const certificados = await Certificado.findAll({
-      raw: true,
-      include: [
-        {
-          model: Inscripcion,
-          attributes: [], // para que no meta columnas de Inscripcion en el resultado (porque usas raw)
-          where: { userId: user.id }, // o el campo que tengas, p.ej. idUsuario
-        },
-      ],
-    });
+    const certificados = inscripcionIds.length
+      ? await Certificado.findAll({
+        raw: true,
+        where: { inscripcionId: inscripcionIds },
+      })
+      : [];
 
 
     // Map pagos (pueden ser varios por inscripción)
@@ -854,11 +852,10 @@ const getLoggedUser = catchError(async (req, res) => {
     // Map certificados
     const certMap = {};
     certificados.forEach((c) => {
-      const key = `${String(c.cedula).trim().toLowerCase()}-${String(c.curso)
-        .trim()
-        .toLowerCase()}`;
-      certMap[key] = c;
+      if (!c.inscripcionId) return;
+      certMap[String(c.inscripcionId)] = c;
     });
+
 
     // Merge final
     const coursesWithData = userCourses.map((course) => {
@@ -888,19 +885,17 @@ const getLoggedUser = catchError(async (req, res) => {
         pagosData = pagosMap[insc.id] || [];
       }
 
-      const certKey = `${String(user.cI).trim().toLowerCase()}-${String(
-        course.curso
-      )
-        .trim()
-        .toLowerCase()}`;
-      const cert = certMap[certKey];
-      if (cert) {
-        certData = {
-          grupo: cert.verificado,
-          fecha: cert.fecha,
-          url: cert.url,
-        };
+      if (insc) {
+        const cert = certMap[String(insc.id)];
+        if (cert) {
+          certData = {
+            grupo: cert.grupo,
+            fecha: cert.createdAt,
+            url: cert.url,
+          };
+        }
       }
+
 
       return {
         ...course,

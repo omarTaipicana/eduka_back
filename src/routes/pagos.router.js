@@ -1,6 +1,8 @@
 const { getAll, getDashboardPagos, validatePago, create, getOne, remove, update } = require('../controllers/pagos.controllers');
 const express = require('express');
 const upload = require("../utils/multer")
+const verifyJWT = require("../utils/verifyJWT")
+
 
 
 const pagosRouter = express.Router();
@@ -18,6 +20,6 @@ pagosRouter.route('/pagovalidate')
 pagosRouter.route('/pagos/:id')
     .get(getOne)
     .delete(remove)
-    .put(update);
+    .put(verifyJWT, update);
 
 module.exports = pagosRouter;
