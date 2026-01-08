@@ -351,14 +351,14 @@ const create = catchError(async (req, res) => {
       courseShortname: course.sigla,
     });
 
-   if (!resultadoMoodle) {
-  console.error("❌ No se pudo registrar usuario en Moodle. Inscripción local NO creada.");
+    if (!resultadoMoodle) {
+      console.error("❌ No se pudo registrar usuario en Moodle. Inscripción local NO creada.");
 
-  return res.status(502).json({
-    error: "No se pudo registrar el usuario en la plataforma académica (Moodle). Inténtalo nuevamente o contacta soporte."
-  });
-}
- else {
+      return res.status(502).json({
+        error: "No se pudo registrar el usuario en la plataforma académica (Moodle). Inténtalo nuevamente o contacta soporte."
+      });
+    }
+    else {
       console.log(`✅ Usuario ${cedula} inscrito en Moodle curso ${course.nombre}`);
 
       // Guardamos el ID Moodle en nuestra base local si no lo tiene
