@@ -355,7 +355,7 @@ const create = catchError(async (req, res) => {
       console.error("❌ No se pudo registrar usuario en Moodle. Inscripción local NO creada.");
 
       return res.status(502).json({
-        error: "No se pudo registrar el usuario en la plataforma académica (Moodle). Inténtalo nuevamente o contacta soporte."
+        message: "No se pudo registrar el usuario en la plataforma académica. Por favor verifica si tu usuario Acadex registra correctamente tu cedula de identidad, contacta a soporte para modificaciones."
       });
     }
     else {
