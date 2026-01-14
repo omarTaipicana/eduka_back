@@ -649,9 +649,24 @@ const getOne = catchError(async (req, res) => {
 
 const remove = catchError(async (req, res) => {
   const { id } = req.params;
+
+  const result = await User.findByPk(id);
+  if (!result) {
+    return res.status(404).json({
+      status: "error",
+      message: "Usuario no encontrado",
+    });
+  }
+
   await User.destroy({ where: { id } });
-  return res.sendStatus(204);
+
+  return res.status(200).json({
+    status: "success",
+    message: "Usuario eliminado correctamente",
+    result, // 👈 devuelve el registro que eliminaste
+  });
 });
+
 
 const update = catchError(async (req, res) => {
   const {
@@ -674,6 +689,7 @@ const update = catchError(async (req, res) => {
   const result = await User.update(
     {
       cI,
+      email,
       firstName,
       lastName,
       cellular,
