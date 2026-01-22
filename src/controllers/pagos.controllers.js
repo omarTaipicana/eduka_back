@@ -92,7 +92,7 @@ const getAll = catchError(async (req, res) => {
           {
             model: User,
             required: true,
-            attributes: ["grado", "firstName", "lastName", "cI"],
+            attributes: ["grado", "firstName", "lastName", "cI", "cellular", "email"],
             where: userWhere || undefined,
           },
         ],
