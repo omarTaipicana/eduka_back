@@ -466,7 +466,120 @@ routerTest.post("/contifico/factura/emitir", express.json(), async (req, res) =>
 
 
 
+router.post("/contifico/factura/emitir-manual", async (req, res) => {
+  try {
+    const { pagoId } = req.body;
 
+    if (!pagoId) {
+      return res.status(400).json({ ok: false, error: "Falta pagoId" });
+    }
+
+    const pago = await Pagos.findByPk(pagoId, {
+      include: [
+        {
+          model: Inscripcion,
+          include: [{ model: User }, { model: Course }],
+        },
+      ],
+    });
+
+    if (!pago) {
+      return res.status(404).json({ ok: false, error: "Pago no encontrado" });
+    }
+
+    if (!pago.verificado) {
+      return res.status(400).json({
+        ok: false,
+        error: "El pago aún no está verificado",
+      });
+    }
+
+    if (pago.contificoDocumentoId) {
+      return res.status(400).json({
+        ok: false,
+        error: "Este pago ya tiene factura emitida",
+      });
+    }
+
+    const user = pago.inscripcion?.user;
+    const course = pago.inscripcion?.course;
+
+    if (!user) {
+      return res.status(400).json({ ok: false, error: "Pago sin usuario" });
+    }
+
+    const {
+      contificoBuscarOCrearPersona,
+      contificoGetSiguienteDocumento,
+      contificoCrearFacturaIva0,
+      contificoEnviarDocumentoAlSRI,
+    } = await import("../utils/contifico.service.js");
+
+    // 1️⃣ Persona
+    let personaId = user.contificoPersonaId;
+
+    if (!personaId) {
+      const persona = await contificoBuscarOCrearPersona({
+        cedula: String(user.cI || "").trim(),
+        email: String(user.email || "").trim(),
+        firstName: user.firstName,
+        lastName: user.lastName,
+        telefonos: user.cellular || "",
+        direccion: `${user.city || ""} ${user.province || ""}`.trim(),
+      });
+
+      personaId = persona.id;
+
+      await User.update(
+        { contificoPersonaId: personaId },
+        { where: { id: user.id } }
+      );
+    }
+
+    // 2️⃣ Documento
+    const { documento } = await contificoGetSiguienteDocumento();
+
+    const doc = await contificoCrearFacturaIva0({
+      documento,
+      personaId,
+      cedula: user.cI,
+      email: user.email,
+      razon_social: `${user.firstName} ${user.lastName}`,
+      direccion: `${user.city || ""} ${user.province || ""}`,
+      telefonos: user.cellular || "",
+      total: Number(pago.valorDepositado),
+      descripcionItem: `Pago curso: ${course?.nombre || pago.curso}`,
+    });
+
+    // 3️⃣ Guardar vínculo
+    await Pagos.update(
+      {
+        contificoDocumentoId: doc.id,
+        contificoDocumentoNumero: doc.documento,
+        contificoEstado: doc.estado,
+        contificoFirmado: doc.firmado,
+        contificoUrlRide: doc.url_ride,
+        contificoUrlXml: doc.url_xml,
+      },
+      { where: { id: pago.id } }
+    );
+
+    // 4️⃣ Enviar al SRI
+    await contificoEnviarDocumentoAlSRI(doc.id);
+
+    return res.json({
+      ok: true,
+      message: "Factura emitida correctamente",
+      documento: doc.documento,
+    });
+  } catch (error) {
+    console.error(error.response?.data || error.message);
+    return res.status(500).json({
+      ok: false,
+      error: error.response?.data || error.message,
+    });
+  }
+});
 
 
 
