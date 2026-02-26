@@ -13,7 +13,23 @@ require("./models")
 const app = express();
 
 // Middlewares 
+// app.use(express.json());
+
+app.use((err, req, res, next) => {
+  if (err?.type === "entity.parse.failed") {
+    return res.status(400).json({
+      ok: false,
+      error: "JSON inválido o body vacío (revisa Postman: no envíes raw JSON vacío)",
+    });
+  }
+  next(err);
+});
+
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+
+
 app.use(helmet({
     crossOriginResourcePolicy: false,
 }));

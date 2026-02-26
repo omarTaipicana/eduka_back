@@ -5,6 +5,7 @@ const { Server } = require("socket.io");
 const app = require("./app"); // tu Express app
 const sequelize = require("./utils/connection");
 const sequelizeM = require("./utils/connectionM");
+const startContificoCron = require("./jobs/contifico.cron");
 
 const PORT = process.env.PORT || 8081;
 
@@ -42,6 +43,7 @@ const main = async () => {
     // Iniciar servidor
     server.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
+      startContificoCron();
     });
   } catch (error) {
     console.error("Error al iniciar servidor:", error);
