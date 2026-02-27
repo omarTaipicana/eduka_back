@@ -8,6 +8,14 @@ const contifico = axios.create({
     timeout: 20000,
 });
 
+const contificoV2 = axios.create({
+    baseURL: "https://api.contifico.com/sistema/api/v2",
+    headers: {
+        Authorization: process.env.CONTIFICO_API_KEY,
+    },
+    timeout: 20000,
+});
+
 // helper: fecha dd/mm/yyyy (Contífico suele usar ese formato)
 function formatDateDMY(date = new Date()) {
     const d = String(date.getDate()).padStart(2, "0");
@@ -97,14 +105,14 @@ export async function contificoBuscarOCrearPersona({
 
 // listar productos
 export async function contificoBuscarProductoPorCodigo(codigo) {
-    const { data } = await contifico.get("/producto/", {
+    const { data } = await contificoV2.get("/producto/", {
         params: { filtro: codigo }, // filtra por nombre o código
     });
     return data;
 }
 
 export async function contificoListarProductos() {
-    const { data } = await contifico.get("/producto/", {
+    const { data } = await contificoV2.get("/producto/", {
         params: {
             page: 1,
             limit: 50,

@@ -3,6 +3,7 @@ import Pagos from "../models/Pagos.js";
 import Inscripcion from "../models/Inscripcion.js";
 import User from "../models/User.js";
 import Course from "../models/Course.js";
+import axios from "axios";
 
 import {
     contificoPing,
@@ -20,7 +21,13 @@ import {
 
 } from "../utils/contifico.service.js";
 
-
+const contifico = axios.create({
+    baseURL: "https://api.contifico.com/sistema/api/v1",
+    headers: {
+        Authorization: process.env.CONTIFICO_API_KEY,
+    },
+    timeout: 20000,
+});
 
 
 const routerTest = express.Router();
@@ -88,6 +95,7 @@ routerTest.get("/contifico/producto", async (req, res) => {
     }
 });
 
+
 routerTest.get("/contifico/productos", async (req, res) => {
     try {
         const data = await contificoListarProductos();
@@ -99,6 +107,47 @@ routerTest.get("/contifico/productos", async (req, res) => {
 });
 
 
+routerTest.get("/contifico/categorias", async (req, res) => {
+  try {
+    const { data } = await contifico.get("/categoria/");
+    res.json({ ok: true, count: Array.isArray(data) ? data.length : null, data });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.response?.data || e.message });
+  }
+});
+
+routerTest.get("/contifico/bodegas", async (req, res) => {
+  try {
+    const { data } = await contifico.get("/bodega/");
+    res.json({ ok: true, count: Array.isArray(data) ? data.length : null, data });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.response?.data || e.message });
+  }
+});
+
+
+routerTest.get("/contifico/productos_paged", async (req, res) => {
+  try {
+    const page = Number(req.query.page || 1);
+    const limit = Number(req.query.limit || 50);
+
+    const { data } = await contifico.get("/producto/", {
+      params: { page, limit }, // probamos paginación
+    });
+
+    res.json({
+      ok: true,
+      page,
+      limit,
+      count: Array.isArray(data) ? data.length : null,
+      sample: Array.isArray(data) ? data[0] : null,
+      data,
+    });
+  } catch (e) {
+    console.error(e.response?.data || e.message);
+    res.status(500).json({ ok: false, error: e.response?.data || e.message });
+  }
+});
 
 
 routerTest.post("/contifico/factura/prueba", express.json(), async (req, res) => {
@@ -466,7 +515,7 @@ routerTest.post("/contifico/factura/emitir", express.json(), async (req, res) =>
 
 
 
-router.post("/contifico/factura/emitir-manual", async (req, res) => {
+routerTest.post("/contifico/factura/emitir-manual", async (req, res) => {
   try {
     const { pagoId } = req.body;
 
