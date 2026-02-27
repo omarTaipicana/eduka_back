@@ -584,7 +584,7 @@ try {
         contificoGetSiguienteDocumento,
         contificoCrearFacturaIva0,
         contificoEnviarDocumentoAlSRI,
-      } = await import("../utils/contifico.service.js");
+      } = await require ("../utils/contifico.service.js");
 
       let personaId = user.contificoPersonaId;
 

@@ -1,33 +1,36 @@
-import express from "express";
-import Pagos from "../models/Pagos.js";
-import Inscripcion from "../models/Inscripcion.js";
-import User from "../models/User.js";
-import Course from "../models/Course.js";
-import axios from "axios";
 
-import {
-    contificoPing,
-    contificoBuscarPersonaPorIdentificacion,
-    contificoCrearPersonaCliente,
-    contificoBuscarOCrearPersona,
-    contificoBuscarProductoPorCodigo,
-    contificoListarProductos,
-    contificoCrearFacturaIva0,
-    contificoExtraerSecuencial,
-    contificoListarDocumentos,
-    contificoFormatearDocumento,
-    contificoGetDocumentoById,
-    contificoGetSiguienteDocumento,
+const express = require("express");
+const Pagos = require("../models/Pagos");
+const Inscripcion = require("../models/Inscripcion");
+const User = require("../models/User");
+const Course = require("../models/Course");
+const axios = require("axios");
 
-} from "../utils/contifico.service.js";
+const { sendEmail } = require("../utils/sendEmail");
+
+const {
+  contificoPing,
+  contificoBuscarPersonaPorIdentificacion,
+  contificoCrearPersonaCliente,
+  contificoBuscarOCrearPersona,
+  contificoBuscarProductoPorCodigo,
+  contificoListarProductos,
+  contificoCrearFacturaIva0,
+  contificoExtraerSecuencial,
+  contificoListarDocumentos,
+  contificoFormatearDocumento,
+  contificoGetDocumentoById,
+  contificoGetSiguienteDocumento,
+  } = require("../utils/contifico.service");
 
 const contifico = axios.create({
-    baseURL: "https://api.contifico.com/sistema/api/v1",
-    headers: {
-        Authorization: process.env.CONTIFICO_API_KEY,
-    },
-    timeout: 20000,
+  baseURL: "https://api.contifico.com/sistema/api/v1",
+  headers: {
+    Authorization: process.env.CONTIFICO_API_KEY,
+  },
+  timeout: 20000,
 });
+
 
 
 const routerTest = express.Router();
@@ -562,7 +565,7 @@ routerTest.post("/contifico/factura/emitir-manual", async (req, res) => {
       contificoGetSiguienteDocumento,
       contificoCrearFacturaIva0,
       contificoEnviarDocumentoAlSRI,
-    } = await import("../utils/contifico.service.js");
+    } = await require("../utils/contifico.service.js");
 
     // 1️⃣ Persona
     let personaId = user.contificoPersonaId;

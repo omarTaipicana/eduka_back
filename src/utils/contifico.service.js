@@ -1,4 +1,4 @@
-import axios from "axios";
+const axios = require("axios");
 
 const contifico = axios.create({
     baseURL: "https://api.contifico.com/sistema/api/v1",
@@ -16,7 +16,7 @@ const contificoV2 = axios.create({
     timeout: 20000,
 });
 
-// helper: fecha dd/mm/yyyy (Contífico suele usar ese formato)
+// helper: fecha dd/mm/yyyy
 function formatDateDMY(date = new Date()) {
     const d = String(date.getDate()).padStart(2, "0");
     const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -24,23 +24,19 @@ function formatDateDMY(date = new Date()) {
     return `${d}/${m}/${y}`;
 }
 
-
-
-export async function contificoPing() {
+async function contificoPing() {
     const { data } = await contifico.get("/persona/");
     return data;
 }
 
-// ✅ buscar persona por identificación (RUC o cédula)
-export async function contificoBuscarPersonaPorIdentificacion(identificacion) {
+async function contificoBuscarPersonaPorIdentificacion(identificacion) {
     const { data } = await contifico.get("/persona/", {
-        params: { identificacion }, // Contífico filtra por identificacion
+        params: { identificacion },
     });
-    return data; // normalmente devuelve array
+    return data;
 }
 
-// ✅ crear persona cliente
-export async function contificoCrearPersonaCliente({
+async function contificoCrearPersonaCliente({
     cedula,
     email,
     firstName,
@@ -74,184 +70,163 @@ export async function contificoCrearPersonaCliente({
     return data;
 }
 
-export async function contificoBuscarOCrearPersona({
-    cedula,
-    email,
-    firstName,
-    lastName,
-    telefonos = "",
-    direccion = "",
-}) {
-    // 1) buscar por cédula
-    const encontrados = await contificoBuscarPersonaPorIdentificacion(cedula);
+async function contificoBuscarOCrearPersona(params) {
+    const encontrados = await contificoBuscarPersonaPorIdentificacion(params.cedula);
 
     if (Array.isArray(encontrados) && encontrados.length > 0 && encontrados[0]?.id) {
-        return encontrados[0]; // ya existe
+        return encontrados[0];
     }
 
-    // 2) si no existe, crear
-    const creada = await contificoCrearPersonaCliente({
-        cedula,
-        email,
-        firstName,
-        lastName,
-        telefonos,
-        direccion,
-    });
-
-    return creada;
+    return await contificoCrearPersonaCliente(params);
 }
 
-
-// listar productos
-export async function contificoBuscarProductoPorCodigo(codigo) {
+async function contificoBuscarProductoPorCodigo(codigo) {
     const { data } = await contificoV2.get("/producto/", {
-        params: { filtro: codigo }, // filtra por nombre o código
+        params: { filtro: codigo },
     });
     return data;
 }
 
-export async function contificoListarProductos() {
+async function contificoListarProductos() {
     const { data } = await contificoV2.get("/producto/", {
-        params: {
-            page: 1,
-            limit: 50,
-        },
-        timeout: 60000, // aumentar tiempo solo aquí
+        params: { page: 1, limit: 50 },
+        timeout: 60000,
     });
     return data;
 }
 
-
-
-// ✅ crear factura (documento) IVA 0%
-export async function contificoCrearFacturaIva0({
-  documento,
-  personaId,
-  cedula,
-  email,
-  razon_social,
-  direccion = "",
-  telefonos = "",
-  total,
-  descripcionItem,
-}) {
-  const totalNum = Number(total);
-
-  const payload = {
-    pos: process.env.CONTIFICO_POS_TOKEN,
-    fecha_emision: formatDateDMY(new Date()),
-    tipo_documento: "FAC",
-    tipo_registro: "CLI",
+async function contificoCrearFacturaIva0({
     documento,
-    autorizacion: "",        // vacío para electrónicos
-    electronico: true,
+    personaId,
+    cedula,
+    email,
+    razon_social,
+    direccion = "",
+    telefonos = "",
+    total,
+    descripcionItem,
+}) {
+    const totalNum = Number(total);
 
-    // ✅ TOTALES OBLIGATORIOS DEL DOCUMENTO (IVA 0%)
-    subtotal_0: totalNum,
-    subtotal_12: 0,
-    iva: 0,
-    ice: 0,
-    total: totalNum,
+    const payload = {
+        pos: process.env.CONTIFICO_POS_TOKEN,
+        fecha_emision: formatDateDMY(new Date()),
+        tipo_documento: "FAC",
+        tipo_registro: "CLI",
+        documento,
+        autorizacion: "",
+        electronico: true,
 
-    cliente: {
-      id: personaId,
-      cedula,
-      email,
-      razon_social,
-      direccion,
-      telefonos,
-      tipo: "N",
-      es_cliente: true,
-    },
-
-    detalles: [
-      {
-        producto_id: process.env.CONTIFICO_PRODUCTO_ID,
-        cantidad: 1,
-        precio: totalNum,
-        porcentaje_descuento: 0,
-
-        // IVA 0% => base_cero
-        base_cero: totalNum,
-        base_gravable: 0,
-        base_no_gravable: 0,
-
-        // opcionales/otros
-        valor_ice: 0,
+        subtotal_0: totalNum,
+        subtotal_12: 0,
+        iva: 0,
         ice: 0,
+        total: totalNum,
 
-        descripcion: descripcionItem || "Pago Eduka",
-      },
-    ],
-  };
+        cliente: {
+            id: personaId,
+            cedula,
+            email,
+            razon_social,
+            direccion,
+            telefonos,
+            tipo: "N",
+            es_cliente: true,
+        },
 
-  const { data } = await contifico.post("/documento/", payload);
-  return data;
+        detalles: [
+            {
+                producto_id: process.env.CONTIFICO_PRODUCTO_ID,
+                cantidad: 1,
+                precio: totalNum,
+                porcentaje_descuento: 0,
+                base_cero: totalNum,
+                base_gravable: 0,
+                base_no_gravable: 0,
+                valor_ice: 0,
+                ice: 0,
+                descripcion: descripcionItem || "Pago Eduka",
+            },
+        ],
+    };
+
+    const { data } = await contifico.post("/documento/", payload);
+    return data;
 }
 
-// ✅ listar documentos (FAC/CLI) usando endpoint de registro
-export async function contificoListarDocumentos({ tipo = "FAC", tipo_registro = "CLI", result_size = 50, result_page = 1, fecha_inicial, fecha_final } = {}) {
-  const params = { tipo, tipo_registro, result_size, result_page };
-  if (fecha_inicial) params.fecha_inicial = fecha_inicial; // dd/mm/yyyy
-  if (fecha_final) params.fecha_final = fecha_final;       // dd/mm/yyyy
+async function contificoListarDocumentos(params = {}) {
+    const {
+        tipo = "FAC",
+        tipo_registro = "CLI",
+        result_size = 50,
+        result_page = 1,
+        fecha_inicial,
+        fecha_final,
+    } = params;
 
-  const { data } = await contifico.get("/registro/documento/", { params });
-  return data; // array de documentos
+    const query = { tipo, tipo_registro, result_size, result_page };
+    if (fecha_inicial) query.fecha_inicial = fecha_inicial;
+    if (fecha_final) query.fecha_final = fecha_final;
+
+    const { data } = await contifico.get("/registro/documento/", { params: query });
+    return data;
 }
 
-
-
-
-export async function contificoGetDocumentoById(id) {
-  const { data } = await contifico.get(`/documento/${id}/`);
-  return data;
+async function contificoGetDocumentoById(id) {
+    const { data } = await contifico.get(`/documento/${id}/`);
+    return data;
 }
 
-
-
-
-
- export function contificoExtraerSecuencial(documento) {
-  // 001-001-990000133 → 990000133
-  const parts = documento?.split("-");
-  return Number(parts?.[2]);
+function contificoExtraerSecuencial(documento) {
+    const parts = documento?.split("-");
+    return Number(parts?.[2]);
 }
 
-export function contificoFormatearDocumento(numero, estab = "001", pto = "001") {
-  return `${estab}-${pto}-${String(numero).padStart(9, "0")}`;
+function contificoFormatearDocumento(numero, estab = "001", pto = "001") {
+    return `${estab}-${pto}-${String(numero).padStart(9, "0")}`;
 }
 
-/* -----------------------------
-   NUEVA FUNCIÓN
------------------------------- */
+async function contificoGetSiguienteDocumento() {
+    const { data } = await contifico.get("/registro/documento/", {
+        params: {
+            tipo: "FAC",
+            tipo_registro: "CLI",
+            result_size: 50,
+            result_page: 1,
+        },
+    });
 
-export async function contificoGetSiguienteDocumento() {
-  const { data } = await contifico.get("/registro/documento/", {
-    params: {
-      tipo: "FAC",
-      tipo_registro: "CLI",
-      result_size: 50,
-      result_page: 1,
-    },
-  });
+    const docs = data?.results || data || [];
 
-  const docs = data?.results || data || [];
+    const secuenciales = docs
+        .map((d) => contificoExtraerSecuencial(d.documento))
+        .filter((n) => Number.isFinite(n));
 
-  const secuenciales = docs
-    .map((d) => contificoExtraerSecuencial(d.documento))
-    .filter((n) => Number.isFinite(n));
+    const max = secuenciales.length ? Math.max(...secuenciales) : 0;
+    const siguiente = max + 1;
 
-  const max = secuenciales.length ? Math.max(...secuenciales) : 0;
-  const siguiente = max + 1;
-
-  return {
-    documento: contificoFormatearDocumento(siguiente),
-  };
+    return {
+        documento: contificoFormatearDocumento(siguiente),
+    };
 }
 
-
-export async function contificoEnviarDocumentoAlSRI(documentoId) {
-  const { data } = await contifico.put(`/documento/${documentoId}/sri/`);
-  return data;
+async function contificoEnviarDocumentoAlSRI(documentoId) {
+    const { data } = await contifico.put(`/documento/${documentoId}/sri/`);
+    return data;
 }
+
+module.exports = {
+    contificoPing,
+    contificoBuscarPersonaPorIdentificacion,
+    contificoCrearPersonaCliente,
+    contificoBuscarOCrearPersona,
+    contificoBuscarProductoPorCodigo,
+    contificoListarProductos,
+    contificoCrearFacturaIva0,
+    contificoListarDocumentos,
+    contificoGetDocumentoById,
+    contificoExtraerSecuencial,
+    contificoFormatearDocumento,
+    contificoGetSiguienteDocumento,
+    contificoEnviarDocumentoAlSRI,
+};

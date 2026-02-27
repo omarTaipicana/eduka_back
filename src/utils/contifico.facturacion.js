@@ -1,31 +1,38 @@
-import Pagos from "../models/Pagos.js";         // ajusta según tu estructura
-import Inscripcion from "../models/Inscripcion.js";
-import User from "../models/User.js";
-import Course from "../models/Course.js";
+const Pagos = require("../models/Pagos"); // ajusta según tu estructura
+const Inscripcion = require("../models/Inscripcion");
+const User = require("../models/User");
+const Course = require("../models/Course");
 
-import {
+const {
   contificoGetSiguienteDocumento,
   contificoCrearFacturaIva0,
-} from "./contifico.service.js";
+} = require("./contifico.service");
 
-export async function contificoEmitirFacturaPorPagoId(pagoId) {
+async function contificoEmitirFacturaPorPagoId(pagoId) {
   const pago = await Pagos.findByPk(pagoId, {
     include: [{ model: Inscripcion, include: [{ model: User }, { model: Course }] }],
   });
+
   if (!pago) throw new Error("Pago no encontrado");
 
   // ✅ anti-duplicado
   if (pago.contificoDocumentoId) {
-    return { skipped: true, motivo: "Pago ya facturado", documento: pago.contificoDocumentoNumero };
+    return {
+      skipped: true,
+      motivo: "Pago ya facturado",
+      documento: pago.contificoDocumentoNumero,
+    };
   }
 
   const user = pago.inscripcion?.user;
   const course = pago.inscripcion?.course;
 
   if (!user) throw new Error("Pago sin usuario");
-  if (!user.contificoPersonaId) throw new Error("Usuario sin contificoPersonaId");
+  if (!user.contificoPersonaId)
+    throw new Error("Usuario sin contificoPersonaId");
 
   const total = Number(pago.valorDepositado);
+
   if (!Number.isFinite(total) || total <= 0) {
     throw new Error(`valorDepositado inválido: ${pago.valorDepositado}`);
   }
@@ -43,7 +50,9 @@ export async function contificoEmitirFacturaPorPagoId(pagoId) {
     direccion: `${user.city || ""} ${user.province || ""}`.trim(),
     telefonos: user.cellular || "",
     total,
-    descripcionItem: `Pago curso: ${course?.nombre || pago.curso || "Curso"}`,
+    descripcionItem: `Pago curso: ${
+      course?.nombre || pago.curso || "Curso"
+    }`,
   });
 
   // ✅ guardar vínculo en Pagos
@@ -62,3 +71,7 @@ export async function contificoEmitirFacturaPorPagoId(pagoId) {
 
   return { skipped: false, doc };
 }
+
+module.exports = {
+  contificoEmitirFacturaPorPagoId,
+};
