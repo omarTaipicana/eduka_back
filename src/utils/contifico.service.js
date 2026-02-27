@@ -139,6 +139,7 @@ async function contificoCrearFacturaIva0({
                 producto_id: process.env.CONTIFICO_PRODUCTO_ID,
                 cantidad: 1,
                 precio: totalNum,
+                porcentaje_iva: 0,
                 porcentaje_descuento: 0,
                 base_cero: totalNum,
                 base_gravable: 0,
