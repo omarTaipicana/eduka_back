@@ -33,9 +33,9 @@ const contifico = axios.create({
 
 
 
-const routerTest = express.Router();
+const contificoRouter = express.Router();
 
-routerTest.get("/test-contifico", async (req, res) => {
+contificoRouter.get("/test-contifico", async (req, res) => {
     try {
         const data = await contificoPing();
         res.json({ ok: true, total: data.length });
@@ -45,7 +45,7 @@ routerTest.get("/test-contifico", async (req, res) => {
 });
 
 // ✅ buscar persona
-routerTest.get("/contifico/persona", async (req, res) => {
+contificoRouter.get("/contifico/persona", async (req, res) => {
     try {
         const { identificacion } = req.query;
         if (!identificacion) {
@@ -58,7 +58,7 @@ routerTest.get("/contifico/persona", async (req, res) => {
     }
 });
 
-routerTest.post("/contifico/persona", async (req, res) => {
+contificoRouter.post("/contifico/persona", async (req, res) => {
     try {
         const data = await contificoCrearPersonaCliente(req.body);
         res.json({ ok: true, data });
@@ -71,7 +71,7 @@ routerTest.post("/contifico/persona", async (req, res) => {
     }
 });
 
-routerTest.post("/contifico/persona/buscar-o-crear", async (req, res) => {
+contificoRouter.post("/contifico/persona/buscar-o-crear", async (req, res) => {
     try {
         const data = await contificoBuscarOCrearPersona(req.body);
         res.json({ ok: true, data });
@@ -83,7 +83,7 @@ routerTest.post("/contifico/persona/buscar-o-crear", async (req, res) => {
 
 
 
-routerTest.get("/contifico/producto", async (req, res) => {
+contificoRouter.get("/contifico/producto", async (req, res) => {
     try {
         const { codigo } = req.query;
         if (!codigo) {
@@ -99,7 +99,7 @@ routerTest.get("/contifico/producto", async (req, res) => {
 });
 
 
-routerTest.get("/contifico/productos", async (req, res) => {
+contificoRouter.get("/contifico/productos", async (req, res) => {
     try {
         const data = await contificoListarProductos();
         res.json({ ok: true, data });
@@ -110,7 +110,7 @@ routerTest.get("/contifico/productos", async (req, res) => {
 });
 
 
-routerTest.get("/contifico/categorias", async (req, res) => {
+contificoRouter.get("/contifico/categorias", async (req, res) => {
   try {
     const { data } = await contifico.get("/categoria/");
     res.json({ ok: true, count: Array.isArray(data) ? data.length : null, data });
@@ -119,7 +119,7 @@ routerTest.get("/contifico/categorias", async (req, res) => {
   }
 });
 
-routerTest.get("/contifico/bodegas", async (req, res) => {
+contificoRouter.get("/contifico/bodegas", async (req, res) => {
   try {
     const { data } = await contifico.get("/bodega/");
     res.json({ ok: true, count: Array.isArray(data) ? data.length : null, data });
@@ -129,7 +129,7 @@ routerTest.get("/contifico/bodegas", async (req, res) => {
 });
 
 
-routerTest.get("/contifico/productos_paged", async (req, res) => {
+contificoRouter.get("/contifico/productos_paged", async (req, res) => {
   try {
     const page = Number(req.query.page || 1);
     const limit = Number(req.query.limit || 50);
@@ -153,7 +153,7 @@ routerTest.get("/contifico/productos_paged", async (req, res) => {
 });
 
 
-routerTest.post("/contifico/factura/prueba", express.json(), async (req, res) => {
+contificoRouter.post("/contifico/factura/prueba", express.json(), async (req, res) => {
     try {
         const { pagoId, documento } = req.body || {};
         if (!pagoId || !documento) {
@@ -249,7 +249,7 @@ routerTest.post("/contifico/factura/prueba", express.json(), async (req, res) =>
     }
 });
 
-routerTest.get("/contifico/factura/siguiente-documento", async (req, res) => {
+contificoRouter.get("/contifico/factura/siguiente-documento", async (req, res) => {
     try {
         // Traer los últimos 50 documentos FAC/CLI (rápido)
         const docs = await contificoListarDocumentos({
@@ -279,7 +279,7 @@ routerTest.get("/contifico/factura/siguiente-documento", async (req, res) => {
     }
 });
 
-routerTest.get("/contifico/documento/:id", async (req, res) => {
+contificoRouter.get("/contifico/documento/:id", async (req, res) => {
     try {
         const data = await contificoGetDocumentoById(req.params.id);
         res.json({ ok: true, data });
@@ -289,7 +289,7 @@ routerTest.get("/contifico/documento/:id", async (req, res) => {
     }
 });
 
-routerTest.post("/contifico/factura/sync", express.json(), async (req, res) => {
+contificoRouter.post("/contifico/factura/sync", express.json(), async (req, res) => {
     try {
         const { pagoId } = req.body || {};
         if (!pagoId) return res.status(400).json({ ok: false, error: "Falta pagoId" });
@@ -420,7 +420,7 @@ routerTest.post("/contifico/factura/sync", express.json(), async (req, res) => {
 
 
 
-routerTest.get("/contifico/factura/estado/:pagoId", async (req, res) => {
+contificoRouter.get("/contifico/factura/estado/:pagoId", async (req, res) => {
     try {
         const { pagoId } = req.params;
 
@@ -446,7 +446,7 @@ routerTest.get("/contifico/factura/estado/:pagoId", async (req, res) => {
     }
 });
 
-routerTest.post("/contifico/factura/emitir", express.json(), async (req, res) => {
+contificoRouter.post("/contifico/factura/emitir", express.json(), async (req, res) => {
     try {
         const { pagoId } = req.body || {};
         if (!pagoId) return res.status(400).json({ ok: false, error: "Falta pagoId" });
@@ -518,7 +518,7 @@ routerTest.post("/contifico/factura/emitir", express.json(), async (req, res) =>
 
 
 
-routerTest.post("/contifico/factura/emitir-manual", async (req, res) => {
+contificoRouter.post("/contifico/factura/emitir-manual", async (req, res) => {
   try {
     const { pagoId } = req.body;
 
@@ -638,6 +638,4 @@ routerTest.post("/contifico/factura/emitir-manual", async (req, res) => {
 
 
 
-
-
-export default routerTest;
+module.exports = contificoRouter;
