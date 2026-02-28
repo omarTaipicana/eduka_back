@@ -186,7 +186,7 @@ const getDashboardPagos = catchError(async (req, res) => {
   const totalConceptos = totalMonedas + totalDistintivos;
 
   const totalPagos = pagos.reduce(
-    (acc, p) => acc + (p.valorDepositado || 0),
+    (acc, p) => acc + (Number(p.valorDepositado) || 0),
     0
   );
   const totalPagosNum = pagos.length;
