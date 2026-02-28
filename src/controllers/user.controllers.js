@@ -626,7 +626,7 @@ const getOne = catchError(async (req, res) => {
         userId: insc.userId,
         pagos: pagosList.map((p) => ({
           pagoUrl: p.pagoUrl,
-          valorDepositado: p.valorDepositado,
+          valorDepositado: Number(p.valorDepositado),
           verificado: p.verificado,
           distintivo: p.distintivo,
           moneda: p.moneda,

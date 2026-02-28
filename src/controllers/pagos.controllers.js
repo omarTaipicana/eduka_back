@@ -218,7 +218,7 @@ const getDashboardPagos = catchError(async (req, res) => {
     fecha.setHours(fecha.getHours() - 5); // ajustar a hora local
     const fechaStr = fecha.toISOString().split("T")[0];
     pagosPorFechaMap[fechaStr] =
-      (pagosPorFechaMap[fechaStr] || 0) + (p.valorDepositado || 0);
+      (pagosPorFechaMap[fechaStr] || 0) + (Number(p.valorDepositado) || 0);
   });
   const pagosPorFecha = Object.entries(pagosPorFechaMap)
     .map(([fecha, total]) => ({ fecha, total }))
