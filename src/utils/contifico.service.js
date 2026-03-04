@@ -1,5 +1,6 @@
 const axios = require("axios");
 
+
 const contifico = axios.create({
     baseURL: "https://api.contifico.com/sistema/api/v1",
     headers: {
@@ -18,34 +19,54 @@ const contificoV2 = axios.create({
 
 // helper: fecha dd/mm/yyyy
 function formatDateDMY(date = new Date()) {
-    const d = String(date.getDate()).padStart(2, "0");
-    const m = String(date.getMonth() + 1).padStart(2, "0");
-    const y = date.getFullYear();
+
+    // convertir a hora de Ecuador (UTC-5)
+    const ecDate = new Date(
+        date.toLocaleString("en-US", { timeZone: "America/Guayaquil" })
+    );
+
+    const d = String(ecDate.getDate()).padStart(2, "0");
+    const m = String(ecDate.getMonth() + 1).padStart(2, "0");
+    const y = ecDate.getFullYear();
+
     return `${d}/${m}/${y}`;
 }
 
 function ecDateYYYYMMDD(d = new Date()) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Guayaquil",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(d);
+    const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/Guayaquil",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+    }).formatToParts(d);
 
-  const y = parts.find(p => p.type === "year").value;
-  const m = parts.find(p => p.type === "month").value;
-  const day = parts.find(p => p.type === "day").value;
-  return `${y}-${m}-${day}`; // YYYY-MM-DD
+    const y = parts.find(p => p.type === "year").value;
+    const m = parts.find(p => p.type === "month").value;
+    const day = parts.find(p => p.type === "day").value;
+    return `${y}-${m}-${day}`; // YYYY-MM-DD
+}
+
+
+function formatDateContifico(date = new Date()) {
+    const ecDate = new Date(
+        date.toLocaleString("en-US", { timeZone: "America/Guayaquil" })
+    );
+
+    const y = ecDate.getFullYear();
+    const m = String(ecDate.getMonth() + 1).padStart(2, "0");
+    const d = String(ecDate.getDate()).padStart(2, "0");
+
+    return `${y}-${m}-${d}`;
 }
 
 function ecTimeHHMMSS(d = new Date()) {
-  return new Intl.DateTimeFormat("en-GB", {
-    timeZone: "America/Guayaquil",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).format(d); // HH:MM:SS
+    return new Intl.DateTimeFormat("en-GB", {
+        timeZone: "America/Guayaquil",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+    }).format(d); // HH:MM:SS
 }
 
 async function contificoPing() {
@@ -134,7 +155,7 @@ async function contificoCrearFacturaIva0({
 
     const payload = {
         pos: process.env.CONTIFICO_POS_TOKEN,
-        fecha_emision: ecDateYYYYMMDD(new Date()),
+        fecha_emision: formatDateDMY(),
         tipo_documento: "FAC",
         tipo_registro: "CLI",
         documento,
