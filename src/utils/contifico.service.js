@@ -24,6 +24,30 @@ function formatDateDMY(date = new Date()) {
     return `${d}/${m}/${y}`;
 }
 
+function ecDateYYYYMMDD(d = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Guayaquil",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(d);
+
+  const y = parts.find(p => p.type === "year").value;
+  const m = parts.find(p => p.type === "month").value;
+  const day = parts.find(p => p.type === "day").value;
+  return `${y}-${m}-${day}`; // YYYY-MM-DD
+}
+
+function ecTimeHHMMSS(d = new Date()) {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "America/Guayaquil",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(d); // HH:MM:SS
+}
+
 async function contificoPing() {
     const { data } = await contifico.get("/persona/");
     return data;
@@ -110,7 +134,7 @@ async function contificoCrearFacturaIva0({
 
     const payload = {
         pos: process.env.CONTIFICO_POS_TOKEN,
-        fecha_emision: formatDateDMY(new Date()),
+        fecha_emision: ecDateYYYYMMDD(new Date()),
         tipo_documento: "FAC",
         tipo_registro: "CLI",
         documento,
