@@ -9,26 +9,25 @@ const axios = require("axios");
 const { sendEmail } = require("../utils/sendEmail");
 
 const {
-  contificoPing,
-  contificoBuscarPersonaPorIdentificacion,
-  contificoCrearPersonaCliente,
-  contificoBuscarOCrearPersona,
-  contificoBuscarProductoPorCodigo,
-  contificoListarProductos,
-  contificoCrearFacturaIva0,
-  contificoExtraerSecuencial,
-  contificoListarDocumentos,
-  contificoFormatearDocumento,
-  contificoGetDocumentoById,
-  contificoGetSiguienteDocumento,
-  } = require("../utils/contifico.service");
+    contificoPing,
+    contificoBuscarPersonaPorIdentificacion,
+    contificoCrearPersonaCliente,
+    contificoBuscarOCrearPersona,
+    contificoBuscarProductoPorCodigo,
+    contificoListarProductos,
+    contificoCrearFacturaIva0,
+    contificoExtraerSecuencial,
+    contificoListarDocumentos,
+    contificoFormatearDocumento,
+    contificoGetDocumentoById,
+} = require("../utils/contifico.service");
 
 const contifico = axios.create({
-  baseURL: "https://api.contifico.com/sistema/api/v1",
-  headers: {
-    Authorization: process.env.CONTIFICO_API_KEY,
-  },
-  timeout: 20000,
+    baseURL: "https://api.contifico.com/sistema/api/v1",
+    headers: {
+        Authorization: process.env.CONTIFICO_API_KEY,
+    },
+    timeout: 20000,
 });
 
 
@@ -111,45 +110,45 @@ contificoRouter.get("/contifico/productos", async (req, res) => {
 
 
 contificoRouter.get("/contifico/categorias", async (req, res) => {
-  try {
-    const { data } = await contifico.get("/categoria/");
-    res.json({ ok: true, count: Array.isArray(data) ? data.length : null, data });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: e.response?.data || e.message });
-  }
+    try {
+        const { data } = await contifico.get("/categoria/");
+        res.json({ ok: true, count: Array.isArray(data) ? data.length : null, data });
+    } catch (e) {
+        res.status(500).json({ ok: false, error: e.response?.data || e.message });
+    }
 });
 
 contificoRouter.get("/contifico/bodegas", async (req, res) => {
-  try {
-    const { data } = await contifico.get("/bodega/");
-    res.json({ ok: true, count: Array.isArray(data) ? data.length : null, data });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: e.response?.data || e.message });
-  }
+    try {
+        const { data } = await contifico.get("/bodega/");
+        res.json({ ok: true, count: Array.isArray(data) ? data.length : null, data });
+    } catch (e) {
+        res.status(500).json({ ok: false, error: e.response?.data || e.message });
+    }
 });
 
 
 contificoRouter.get("/contifico/productos_paged", async (req, res) => {
-  try {
-    const page = Number(req.query.page || 1);
-    const limit = Number(req.query.limit || 50);
+    try {
+        const page = Number(req.query.page || 1);
+        const limit = Number(req.query.limit || 50);
 
-    const { data } = await contifico.get("/producto/", {
-      params: { page, limit }, // probamos paginación
-    });
+        const { data } = await contifico.get("/producto/", {
+            params: { page, limit }, // probamos paginación
+        });
 
-    res.json({
-      ok: true,
-      page,
-      limit,
-      count: Array.isArray(data) ? data.length : null,
-      sample: Array.isArray(data) ? data[0] : null,
-      data,
-    });
-  } catch (e) {
-    console.error(e.response?.data || e.message);
-    res.status(500).json({ ok: false, error: e.response?.data || e.message });
-  }
+        res.json({
+            ok: true,
+            page,
+            limit,
+            count: Array.isArray(data) ? data.length : null,
+            sample: Array.isArray(data) ? data[0] : null,
+            data,
+        });
+    } catch (e) {
+        console.error(e.response?.data || e.message);
+        res.status(500).json({ ok: false, error: e.response?.data || e.message });
+    }
 });
 
 
@@ -446,6 +445,10 @@ contificoRouter.get("/contifico/factura/estado/:pagoId", async (req, res) => {
     }
 });
 
+
+
+
+
 contificoRouter.post("/contifico/factura/emitir", express.json(), async (req, res) => {
     try {
         const { pagoId } = req.body || {};
@@ -523,7 +526,10 @@ contificoRouter.post("/contifico/factura/emitir-manual", async (req, res) => {
     const { pagoId } = req.body;
 
     if (!pagoId) {
-      return res.status(400).json({ ok: false, error: "Falta pagoId" });
+      return res.status(400).json({
+        ok: false,
+        error: "Falta pagoId",
+      });
     }
 
     const pago = await Pagos.findByPk(pagoId, {
@@ -536,7 +542,10 @@ contificoRouter.post("/contifico/factura/emitir-manual", async (req, res) => {
     });
 
     if (!pago) {
-      return res.status(404).json({ ok: false, error: "Pago no encontrado" });
+      return res.status(404).json({
+        ok: false,
+        error: "Pago no encontrado",
+      });
     }
 
     if (!pago.verificado) {
@@ -546,10 +555,20 @@ contificoRouter.post("/contifico/factura/emitir-manual", async (req, res) => {
       });
     }
 
+    // 🚨 evitar duplicados
     if (pago.contificoDocumentoId) {
-      return res.status(400).json({
-        ok: false,
-        error: "Este pago ya tiene factura emitida",
+      return res.json({
+        ok: true,
+        message: "La factura ya existe",
+        factura: {
+          contificoDocumentoId: pago.contificoDocumentoId,
+          contificoDocumentoNumero: pago.contificoDocumentoNumero,
+          contificoEstado: pago.contificoEstado,
+          contificoFirmado: pago.contificoFirmado,
+          contificoUrlRide: pago.contificoUrlRide,
+          contificoUrlXml: pago.contificoUrlXml,
+          contificoAutorizacion: pago.contificoAutorizacion,
+        },
       });
     }
 
@@ -557,7 +576,10 @@ contificoRouter.post("/contifico/factura/emitir-manual", async (req, res) => {
     const course = pago.inscripcion?.course;
 
     if (!user) {
-      return res.status(400).json({ ok: false, error: "Pago sin usuario" });
+      return res.status(400).json({
+        ok: false,
+        error: "Pago sin usuario",
+      });
     }
 
     const {
@@ -565,9 +587,9 @@ contificoRouter.post("/contifico/factura/emitir-manual", async (req, res) => {
       contificoGetSiguienteDocumento,
       contificoCrearFacturaIva0,
       contificoEnviarDocumentoAlSRI,
-    } = await require("../utils/contifico.service.js");
+    } = require("../utils/contifico.service.js");
 
-    // 1️⃣ Persona
+    // 1️⃣ Obtener o crear persona
     let personaId = user.contificoPersonaId;
 
     if (!personaId) {
@@ -588,22 +610,23 @@ contificoRouter.post("/contifico/factura/emitir-manual", async (req, res) => {
       );
     }
 
-    // 2️⃣ Documento
+    // 2️⃣ Obtener siguiente número de factura
     const { documento } = await contificoGetSiguienteDocumento();
 
+    // 3️⃣ Crear factura
     const doc = await contificoCrearFacturaIva0({
       documento,
       personaId,
-      cedula: user.cI,
-      email: user.email,
-      razon_social: `${user.firstName} ${user.lastName}`,
-      direccion: `${user.city || ""} ${user.province || ""}`,
+      cedula: String(user.cI || "").trim(),
+      email: String(user.email || "").trim(),
+      razon_social: `${user.firstName} ${user.lastName}`.trim(),
+      direccion: `${user.city || ""} ${user.province || ""}`.trim(),
       telefonos: user.cellular || "",
       total: Number(pago.valorDepositado),
       descripcionItem: `Pago curso: ${course?.nombre || pago.curso}`,
     });
 
-    // 3️⃣ Guardar vínculo
+    // 4️⃣ Guardar vínculo en BD
     await Pagos.update(
       {
         contificoDocumentoId: doc.id,
@@ -612,27 +635,54 @@ contificoRouter.post("/contifico/factura/emitir-manual", async (req, res) => {
         contificoFirmado: doc.firmado,
         contificoUrlRide: doc.url_ride,
         contificoUrlXml: doc.url_xml,
+        contificoAutorizacion: doc.autorizacion || null,
       },
       { where: { id: pago.id } }
     );
 
-    // 4️⃣ Enviar al SRI
-    await contificoEnviarDocumentoAlSRI(doc.id);
+    // 5️⃣ Enviar documento al SRI
+    try {
+      await contificoEnviarDocumentoAlSRI(doc.id);
+      console.log("🚀 Documento enviado al SRI:", doc.documento);
+    } catch (sriError) {
+      console.error(
+        "❌ Error enviando al SRI:",
+        sriError.response?.data || sriError.message
+      );
+    }
 
     return res.json({
       ok: true,
       message: "Factura emitida correctamente",
-      documento: doc.documento,
+      factura: {
+        contificoDocumentoId: doc.id,
+        contificoDocumentoNumero: doc.documento,
+        contificoEstado: doc.estado,
+        contificoFirmado: doc.firmado,
+        contificoUrlRide: doc.url_ride,
+        contificoUrlXml: doc.url_xml,
+        contificoAutorizacion: doc.autorizacion || null,
+      },
     });
   } catch (error) {
-    console.error(error.response?.data || error.message);
+    const err = error.response?.data;
+
+    // manejar error típico de contifico
+    if (err?.cod_error === 1001) {
+      return res.status(400).json({
+        ok: false,
+        error: "Documento ya existe en Contífico",
+      });
+    }
+
+    console.error("❌ Error Contífico:", err || error.message);
+
     return res.status(500).json({
       ok: false,
-      error: error.response?.data || error.message,
+      error: err || error.message,
     });
   }
 });
-
 
 
 

@@ -28,7 +28,14 @@ const getAll = catchError(async (req, res) => {
     busqueda,
     fechaInicio,
     fechaFin,
-    certificado, // nuevo query
+    certificado,
+    contificoDocumentoId,
+    contificoDocumentoNumero,
+    contificoEstado,
+    contificoFirmado,
+    contificoUrlRide,
+    contificoUrlXml,
+    contificoAutorizacion,
   } = req.query;
 
   // filtros de Pagos
@@ -82,6 +89,14 @@ const getAll = catchError(async (req, res) => {
       "createdAt",
       "inscripcionId",
       "usuarioEdicion",
+      "contificoDocumentoId",
+      "contificoDocumentoNumero",
+      "contificoEstado",
+      "contificoFirmado",
+      "contificoUrlRide",
+      "contificoUrlXml",
+      "contificoAutorizacion",
+
     ],
     include: [
       {
@@ -564,87 +579,90 @@ const update = catchError(async (req, res) => {
 
 
     // ✅ 2) Facturación Contífico (persona + factura)
-// ✅ 2) Facturación Contífico (persona + factura)
-try {
-  if (pagoActualizado.contificoDocumentoId) {
-    console.log("ℹ️ Pago ya tiene factura Contífico:", pagoActualizado.contificoDocumentoNumero);
-  } else {
-    const inscripcion = await Inscripcion.findByPk(pagoActualizado.inscripcionId, {
-      include: [{ model: User }, { model: Course }],
-    });
+    // ✅ 2) Facturación Contífico (persona + factura)
+    // try {
+    //   if (pagoActualizado.contificoDocumentoId) {
+    //     console.log("ℹ️ Pago ya tiene factura Contífico:", pagoActualizado.contificoDocumentoNumero);
+    //   } else {
+    //     const inscripcion = await Inscripcion.findByPk(pagoActualizado.inscripcionId, {
+    //       include: [{ model: User }, { model: Course }],
+    //     });
 
-    if (!inscripcion || !inscripcion.user) {
-      console.warn("No se encontró inscripción/usuario para facturación Contífico");
-    } else {
-      const user = inscripcion.user;
-      const course = inscripcion.course;
+    //     if (!inscripcion || !inscripcion.user) {
+    //       console.warn("No se encontró inscripción/usuario para facturación Contífico");
+    //     } else {
+    //       const user = inscripcion.user;
+    //       const course = inscripcion.course;
 
-      const {
-        contificoBuscarOCrearPersona,
-        contificoGetSiguienteDocumento,
-        contificoCrearFacturaIva0,
-        contificoEnviarDocumentoAlSRI,
-      } = await require ("../utils/contifico.service.js");
+    //       const {
+    //         contificoBuscarOCrearPersona,
+    //         contificoGetSiguienteDocumento,
+    //         contificoCrearFacturaIva0,
+    //         contificoEnviarDocumentoAlSRI,
+    //       } = await require ("../utils/contifico.service.js");
 
-      let personaId = user.contificoPersonaId;
+    //       let personaId = user.contificoPersonaId;
 
-      if (!personaId) {
-        const persona = await contificoBuscarOCrearPersona({
-          cedula: String(user.cI || "").trim(),
-          email: String(user.email || "").trim(),
-          firstName: user.firstName,
-          lastName: user.lastName,
-          telefonos: user.cellular || "",
-          direccion: `${user.city || ""} ${user.province || ""}`.trim(),
-        });
+    //       if (!personaId) {
+    //         const persona = await contificoBuscarOCrearPersona({
+    //           cedula: String(user.cI || "").trim(),
+    //           email: String(user.email || "").trim(),
+    //           firstName: user.firstName,
+    //           lastName: user.lastName,
+    //           telefonos: user.cellular || "",
+    //           direccion: `${user.city || ""} ${user.province || ""}`.trim(),
+    //         });
 
-        personaId = persona.id;
-        await User.update({ contificoPersonaId: personaId }, { where: { id: user.id } });
-      }
+    //         personaId = persona.id;
+    //         await User.update({ contificoPersonaId: personaId }, { where: { id: user.id } });
+    //       }
 
-      const total = Number(pagoActualizado.valorDepositado);
-      if (!Number.isFinite(total) || total <= 0) {
-        console.warn("No se emitió factura: valorDepositado inválido:", pagoActualizado.valorDepositado);
-      } else {
-        const { documento } = await contificoGetSiguienteDocumento();
+    //       const total = Number(pagoActualizado.valorDepositado);
+    //       if (!Number.isFinite(total) || total <= 0) {
+    //         console.warn("No se emitió factura: valorDepositado inválido:", pagoActualizado.valorDepositado);
+    //       } else {
+    //         const { documento } = await contificoGetSiguienteDocumento();
 
-        let doc = await contificoCrearFacturaIva0({
-          documento,
-          personaId,
-          cedula: String(user.cI || "").trim(),
-          email: String(user.email || "").trim(),
-          razon_social: `${user.firstName} ${user.lastName}`.trim(),
-          direccion: `${user.city || ""} ${user.province || ""}`.trim(),
-          telefonos: user.cellular || "",
-          total,
-          descripcionItem: `Pago curso: ${course?.nombre || pagoActualizado.curso || "Curso"}`,
-        });
+    //         let doc = await contificoCrearFacturaIva0({
+    //           documento,
+    //           personaId,
+    //           cedula: String(user.cI || "").trim(),
+    //           email: String(user.email || "").trim(),
+    //           razon_social: `${user.firstName} ${user.lastName}`.trim(),
+    //           direccion: `${user.city || ""} ${user.province || ""}`.trim(),
+    //           telefonos: user.cellular || "",
+    //           total,
+    //           descripcionItem: `Pago curso: ${course?.nombre || pagoActualizado.curso || "Curso"}`,
+    //         });
 
-        await Pagos.update(
-          {
-            contificoDocumentoId: doc.id,
-            contificoDocumentoNumero: doc.documento,
-            contificoEstado: doc.estado,
-            contificoFirmado: doc.firmado,
-            contificoAutorizacion: doc.autorizacion,
-            contificoUrlRide: doc.url_ride,
-            contificoUrlXml: doc.url_xml,
-          },
-          { where: { id } }
-        );
+    //         await Pagos.update(
+    //           {
+    //             contificoDocumentoId: doc.id,
+    //             contificoDocumentoNumero: doc.documento,
+    //             contificoEstado: doc.estado,
+    //             contificoFirmado: doc.firmado,
+    //             contificoAutorizacion: doc.autorizacion,
+    //             contificoUrlRide: doc.url_ride,
+    //             contificoUrlXml: doc.url_xml,
+    //           },
+    //           { where: { id } }
+    //         );
 
-        try {
-          await contificoEnviarDocumentoAlSRI(doc.id);
-          console.log("🚀 Documento enviado al SRI:", doc.documento);
-        } catch (sriError) {
-          console.error("❌ Error enviando al SRI:", sriError.response?.data || sriError.message);
-        }
-      }
-    }
-  }
-} catch (err) {
-  console.error("❌ Error Contífico (persona/factura):", err.response?.data || err.message);
-}
+    //         try {
+    //           await contificoEnviarDocumentoAlSRI(doc.id);
+    //           console.log("🚀 Documento enviado al SRI:", doc.documento);
+    //         } catch (sriError) {
+    //           console.error("❌ Error enviando al SRI:", sriError.response?.data || sriError.message);
+    //         }
+    //       }
+    //     }
+    //   }
+    // } catch (err) {
+    //   console.error("❌ Error Contífico (persona/factura):", err.response?.data || err.message);
+    // }
+
+
+
   }
 
 
