@@ -4,6 +4,9 @@ const Pagos = require("../models/Pagos");
 const Inscripcion = require("../models/Inscripcion");
 const User = require("../models/User");
 const Course = require("../models/Course");
+const ProgramaPagos = require("../models/ProgramaPagos");
+const ProgramaInscripciones = require("../models/ProgramaInscripciones");
+const ProgramasSuperiores = require("../models/ProgramasSuperiores");
 const axios = require("axios");
 
 const { sendEmail } = require("../utils/sendEmail");
@@ -676,6 +679,175 @@ contificoRouter.post("/contifico/factura/emitir-manual", async (req, res) => {
     }
 
     console.error("❌ Error Contífico:", err || error.message);
+
+    return res.status(500).json({
+      ok: false,
+      error: err || error.message,
+    });
+  }
+});
+
+
+contificoRouter.post("/contifico/factura/emitir-manual-programa", async (req, res) => {
+  try {
+    const { pagoId } = req.body;
+
+    if (!pagoId) {
+      return res.status(400).json({
+        ok: false,
+        error: "Falta pagoId",
+      });
+    }
+
+    const pago = await ProgramaPagos.findByPk(pagoId);
+
+    if (!pago) {
+      return res.status(404).json({
+        ok: false,
+        error: "Pago de programa no encontrado",
+      });
+    }
+
+    if (!pago.verificado) {
+      return res.status(400).json({
+        ok: false,
+        error: "El pago aún no está verificado",
+      });
+    }
+
+    // evitar duplicados
+    if (pago.contificoDocumentoId) {
+      return res.json({
+        ok: true,
+        message: "La factura ya existe",
+        factura: {
+          contificoDocumentoId: pago.contificoDocumentoId,
+          contificoDocumentoNumero: pago.contificoDocumentoNumero,
+          contificoEstado: pago.contificoEstado,
+          contificoFirmado: pago.contificoFirmado,
+          contificoUrlRide: pago.contificoUrlRide,
+          contificoUrlXml: pago.contificoUrlXml,
+          contificoAutorizacion: pago.contificoAutorizacion,
+        },
+      });
+    }
+
+    const inscripcion = await ProgramaInscripciones.findByPk(
+      pago.programaInscripcioneId
+    );
+
+    if (!inscripcion) {
+      return res.status(400).json({
+        ok: false,
+        error: "Pago sin inscripción",
+      });
+    }
+
+    const [user, programa] = await Promise.all([
+      User.findByPk(inscripcion.userId),
+      ProgramasSuperiores.findByPk(inscripcion.programasSuperioreId),
+    ]);
+
+    if (!user) {
+      return res.status(400).json({
+        ok: false,
+        error: "Pago sin usuario",
+      });
+    }
+
+    const {
+      contificoBuscarOCrearPersona,
+      contificoGetSiguienteDocumento,
+      contificoCrearFacturaIva0,
+      contificoEnviarDocumentoAlSRI,
+    } = require("../utils/contifico.service.js");
+
+    // 1️⃣ Obtener o crear persona
+    let personaId = user.contificoPersonaId;
+
+    if (!personaId) {
+      const persona = await contificoBuscarOCrearPersona({
+        cedula: String(user.cI || "").trim(),
+        email: String(user.email || "").trim(),
+        firstName: user.firstName,
+        lastName: user.lastName,
+        telefonos: user.cellular || "",
+        direccion: `${user.city || ""} ${user.province || ""}`.trim(),
+      });
+
+      personaId = persona.id;
+
+      await User.update(
+        { contificoPersonaId: personaId },
+        { where: { id: user.id } }
+      );
+    }
+
+    // 2️⃣ Obtener siguiente número de factura
+    const { documento } = await contificoGetSiguienteDocumento();
+
+    // 3️⃣ Crear factura
+    const doc = await contificoCrearFacturaIva0({
+      documento,
+      personaId,
+      cedula: String(user.cI || "").trim(),
+      email: String(user.email || "").trim(),
+      razon_social: `${user.firstName} ${user.lastName}`.trim(),
+      direccion: `${user.city || ""} ${user.province || ""}`.trim(),
+      telefonos: user.cellular || "",
+      total: Number(pago.valorPagado),
+      descripcionItem: `Pago programa: ${programa?.nombre || "Programa Superior"}`,
+    });
+
+    // 4️⃣ Guardar vínculo en BD
+    await ProgramaPagos.update(
+      {
+        contificoDocumentoId: doc.id,
+        contificoDocumentoNumero: doc.documento,
+        contificoEstado: doc.estado,
+        contificoFirmado: doc.firmado,
+        contificoUrlRide: doc.url_ride,
+        contificoUrlXml: doc.url_xml,
+        contificoAutorizacion: doc.autorizacion || null,
+      },
+      { where: { id: pago.id } }
+    );
+
+    // 5️⃣ Enviar documento al SRI
+    try {
+      await contificoEnviarDocumentoAlSRI(doc.id);
+      console.log("🚀 Documento programa enviado al SRI:", doc.documento);
+    } catch (sriError) {
+      console.error(
+        "❌ Error enviando programa al SRI:",
+        sriError.response?.data || sriError.message
+      );
+    }
+
+    return res.json({
+      ok: true,
+      message: "Factura de programa emitida correctamente",
+      factura: {
+        contificoDocumentoId: doc.id,
+        contificoDocumentoNumero: doc.documento,
+        contificoEstado: doc.estado,
+        contificoFirmado: doc.firmado,
+        contificoUrlRide: doc.url_ride,
+        contificoUrlXml: doc.url_xml,
+        contificoAutorizacion: doc.autorizacion || null,
+      },
+    });
+  } catch (error) {
+    const err = error.response?.data;
+
+    if (err?.cod_error === 1001) {
+      return res.status(400).json({
+        ok: false,
+        error: "Documento ya existe en Contífico",
+      });
+    }
+
+    console.error("❌ Error Contífico programa:", err || error.message);
 
     return res.status(500).json({
       ok: false,

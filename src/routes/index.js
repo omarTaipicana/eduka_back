@@ -11,6 +11,9 @@ const userMRouter = require('./userm.router');
 const institutoRouter = require("./instituto.routes");
 const reporteRouter = require("./reporteCertificados.router");
 const contificoRouter = require("./contifico.router");
+const programaSuperiorRouter = require("./programaSuperior.router");
+const programaInscripcionesRouter = require("./programaInscripciones.routes");
+const programaPagosRouter = require("./programaPagos.routes");
 
 const router = express.Router();
 
@@ -26,6 +29,9 @@ router.use(certificadoRouter);
 router.use(userMRouter);
 router.use(institutoRouter);
 router.use(contificoRouter)
+router.use(programaSuperiorRouter)
+router.use(programaInscripcionesRouter)
+router.use(programaPagosRouter);
 
 
 module.exports = router;
