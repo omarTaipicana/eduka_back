@@ -2,7 +2,6 @@ const { DataTypes } = require("sequelize");
 const sequelize = require("../utils/connection");
 
 const ProgramasSuperiores = sequelize.define("programasSuperiores", {
-
   id: {
     type: DataTypes.UUID,
     defaultValue: DataTypes.UUIDV4,
@@ -26,7 +25,7 @@ const ProgramasSuperiores = sequelize.define("programasSuperiores", {
   },
 
   precioTotal: {
-    type: DataTypes.DECIMAL(10,2),
+    type: DataTypes.DECIMAL(10, 2),
     allowNull: false,
   },
 
@@ -40,6 +39,10 @@ const ProgramasSuperiores = sequelize.define("programasSuperiores", {
     defaultValue: true,
   },
 
+  tipo: {
+    type: DataTypes.ENUM("tecnologia", "maestria", "licenciatura", "combo"),
+    defaultValue: "licenciatura",
+  },
 });
 
 module.exports = ProgramasSuperiores;
