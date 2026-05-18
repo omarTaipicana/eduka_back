@@ -18,6 +18,7 @@ const getAll = catchError(async (req, res) => {
     fechaInicio,
     fechaFin,
     programaId,
+    periodo,
     inscritoPor,
     estadoPago,
   } = req.query;
@@ -198,6 +199,7 @@ const create = catchError(async (req, res) => {
     programasSuperioreId,
     registradoPor,
     inscritoPor,
+    periodo,
     descuento,
     totalAPagar
   } = req.body;
@@ -208,6 +210,7 @@ const create = catchError(async (req, res) => {
     programasSuperioreId,
     registradoPor,
     inscritoPor,
+    periodo,
     descuento,
     totalAPagar
 

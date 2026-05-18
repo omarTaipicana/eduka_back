@@ -2,7 +2,6 @@ const { DataTypes } = require("sequelize");
 const sequelize = require("../utils/connection");
 
 const ProgramaInscripciones = sequelize.define("programaInscripciones", {
-
   id: {
     type: DataTypes.UUID,
     defaultValue: DataTypes.UUIDV4,
@@ -19,13 +18,18 @@ const ProgramaInscripciones = sequelize.define("programaInscripciones", {
     defaultValue: "eduka",
   },
 
+  periodo: {
+    type: DataTypes.ENUM("primero", "segundo"),
+    allowNull: true,
+  },
+
   descuento: {
-    type: DataTypes.DECIMAL(10,2),
+    type: DataTypes.DECIMAL(10, 2),
     defaultValue: 0,
   },
 
   totalAPagar: {
-    type: DataTypes.DECIMAL(10,2),
+    type: DataTypes.DECIMAL(10, 2),
     allowNull: false,
   },
 
@@ -33,7 +37,6 @@ const ProgramaInscripciones = sequelize.define("programaInscripciones", {
     type: DataTypes.ENUM("activo", "finalizado", "anulado"),
     defaultValue: "activo",
   },
-
 });
 
 module.exports = ProgramaInscripciones;
