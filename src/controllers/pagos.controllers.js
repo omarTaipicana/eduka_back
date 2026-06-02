@@ -14,7 +14,16 @@ const { contificoEmitirFacturaPorPagoId } = require("../utils/contifico.facturac
 const { Op, Sequelize } = require("sequelize");
 
 
+const TZ = "America/Guayaquil";
 
+const getFechaEcuador = (date) => {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(date));
+};
 
 
 
@@ -160,11 +169,9 @@ const getDashboardPagos = catchError(async (req, res) => {
   const where = { confirmacion: true };
   if (desde || hasta) {
     where.createdAt = {};
-    if (desde) where.createdAt[Op.gte] = new Date(desde);
+    if (desde) where.createdAt[Op.gte] = new Date(`${desde}T00:00:00-05:00`);
     if (hasta) {
-      const hastaDate = new Date(hasta);
-      hastaDate.setDate(hastaDate.getDate() + 1);
-      where.createdAt[Op.lt] = hastaDate;
+      where.createdAt[Op.lt] = new Date(`${hasta}T23:59:59.999-05:00`);
     }
   }
 
@@ -227,14 +234,16 @@ const getDashboardPagos = catchError(async (req, res) => {
   ];
 
   // Evolutivo diario
+  // Evolutivo diario con zona horaria Ecuador
   const pagosPorFechaMap = {};
+
   pagos.forEach((p) => {
-    const fecha = new Date(p.createdAt);
-    fecha.setHours(fecha.getHours() - 5); // ajustar a hora local
-    const fechaStr = fecha.toISOString().split("T")[0];
+    const fechaStr = getFechaEcuador(p.createdAt);
+
     pagosPorFechaMap[fechaStr] =
-      (pagosPorFechaMap[fechaStr] || 0) + (Number(p.valorDepositado) || 0);
+      (pagosPorFechaMap[fechaStr] || 0) + Number(p.valorDepositado || 0);
   });
+
   const pagosPorFecha = Object.entries(pagosPorFechaMap)
     .map(([fecha, total]) => ({ fecha, total }))
     .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
