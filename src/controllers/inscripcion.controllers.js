@@ -55,14 +55,15 @@ const getDashboardInscripciones = catchError(async (req, res) => {
   const where = {};
   if (desde || hasta) {
     where.createdAt = {};
-    if (desde) where.createdAt[Op.gte] = new Date(desde);
+
+    if (desde) {
+      where.createdAt[Op.gte] = new Date(`${desde}T00:00:00-05:00`);
+    }
+
     if (hasta) {
-      const hastaDate = new Date(hasta);
-      hastaDate.setDate(hastaDate.getDate() + 1); // sumamos 1 día
-      where.createdAt[Op.lt] = hastaDate; // menor que el siguiente día
+      where.createdAt[Op.lte] = new Date(`${hasta}T23:59:59.999-05:00`);
     }
   }
-
   // ✅ Filtro por curso
   if (curso && curso !== "todos") {
     where.curso = curso;
