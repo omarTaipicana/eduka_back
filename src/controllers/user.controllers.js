@@ -24,6 +24,7 @@ const getAll = catchError(async (req, res) => {
       pagos,
       certificado,
       curso,
+      observacion,
       page = 1,
       limit = 15,
     } = req.query;
@@ -194,6 +195,7 @@ const getAll = catchError(async (req, res) => {
       pagos,
       certificado,
       curso,
+      observacion,
     ].some((v) => v !== undefined && v !== "");
 
     const result = [];
@@ -271,6 +273,17 @@ const getAll = catchError(async (req, res) => {
             const nfNum =
               nf !== null && nf !== undefined ? parseFloat(nf) : null;
             if (nfNum === null || isNaN(nfNum) || nfNum >= 7) return false;
+          }
+
+          // --- filtro Observación
+          if (observacion === "true") {
+            const obs = courseItem.observacion;
+            if (!obs || String(obs).trim() === "") return false;
+          }
+
+          if (observacion === "false") {
+            const obs = courseItem.observacion;
+            if (obs && String(obs).trim() !== "") return false;
           }
 
           // --- otros filtros
