@@ -14,6 +14,7 @@ const contificoRouter = require("./contifico.router");
 const programaSuperiorRouter = require("./programaSuperior.router");
 const programaInscripcionesRouter = require("./programaInscripciones.routes");
 const programaPagosRouter = require("./programaPagos.routes");
+const seguimientoRouter = require("./seguimiento.router");
 
 const router = express.Router();
 
@@ -32,6 +33,8 @@ router.use(contificoRouter)
 router.use(programaSuperiorRouter)
 router.use(programaInscripcionesRouter)
 router.use(programaPagosRouter);
+router.use(seguimientoRouter);
+
 
 
 module.exports = router;
