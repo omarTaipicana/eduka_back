@@ -19,7 +19,7 @@ const ProgramaInscripciones = sequelize.define("programaInscripciones", {
   },
 
   periodo: {
-    type: DataTypes.ENUM("primero", "segundo"),
+    type: DataTypes.STRING(100),
     allowNull: true,
   },
 
