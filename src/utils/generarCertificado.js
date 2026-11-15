@@ -3,6 +3,7 @@
 const fs = require("fs");
 const path = require("path");
 const { PDFDocument, StandardFonts, rgb } = require("pdf-lib");
+const QRCode = require("qrcode");
 
 const Pagos = require("../models/Pagos");
 const Inscripcion = require("../models/Inscripcion");
@@ -145,6 +146,16 @@ module.exports = async function generarCertificado(pagoId, siglaCertificado = nu
   const apellidos = user.lastName || "";
   const nombreCompleto = `${user.firstName || ""} ${user.lastName || ""}`.trim();
 
+  // QR de EDUKA: apunta al certificado firmado publicado en el dominio de EDUKA.
+  // PUBLIC_API_URL debe ser la URL publica del backend, sin / final.
+  const baseUrl = (process.env.PUBLIC_API_URL || "https://api.eduka-educ.com").replace(/\/+$/, "");
+  const relativeUrl = `/uploads/certificados_firmados/${encodeURIComponent(cursoSigla)}/${encodeURIComponent(String(dataCertificado.cedula))}_${encodeURIComponent(cursoSigla)}.pdf`;
+  const absoluteUrl = `${baseUrl}${relativeUrl}`;
+  const qrBase64 = await QRCode.toDataURL(absoluteUrl);
+  const qrImage = await pdfDoc.embedPng(qrBase64);
+  const qrSize = 69;
+
+
 
   const fontSizeNombre = 40;
   const fontSizeApellido = 40;
@@ -196,6 +207,14 @@ module.exports = async function generarCertificado(pagoId, siglaCertificado = nu
     size: fontSizeNombreCompleto,
     font: fontRegular,
     color: rgb(0, 0, 0),
+  });
+
+  // Posicion exacta del QR de Cumanda (puntos PDF, origen inferior izquierdo).
+  firstPage.drawImage(qrImage, {
+    x: 726,
+    y: 368,
+    width: qrSize,
+    height: qrSize,
   });
 
   // 6) Guardar bytes
