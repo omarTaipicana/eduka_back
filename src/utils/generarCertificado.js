@@ -10,8 +10,9 @@ const User = require("../models/User");
 const Course = require("../models/Course");
 
 const firmarPdfFirmaEc = require("./firmarPdfFirmaEc");
+const { esDiplomado, CURSO_PRINCIPAL, NOMBRES } = require("./piatCertificados");
 
-module.exports = async function generarCertificado(pagoId) {
+module.exports = async function generarCertificado(pagoId, siglaCertificado = null) {
   console.log("🔥 generarCertificado llamado para pagoId:", pagoId);
 
   // 1) Traer pago + relaciones
@@ -36,6 +37,12 @@ module.exports = async function generarCertificado(pagoId) {
   const cursoSigla = course?.sigla || inscripcion.curso || pago.curso;
 
   if (!cursoSigla) throw new Error("No se pudo determinar la sigla del curso");
+  if (siglaCertificado) {
+    if (cursoSigla !== CURSO_PRINCIPAL || !esDiplomado(siglaCertificado)) {
+      throw new Error("No se permite emitir un certificado ajeno a la inscripción");
+    }
+    cursoSigla = siglaCertificado;
+  }
 
   const dataCertificado = {
     pagoId: pago.id,
@@ -44,8 +51,8 @@ module.exports = async function generarCertificado(pagoId) {
     nombresCompletos: `${user.firstName} ${user.lastName}`,
     cedula: user.cI,
     grado: user.grado,
-    cursoCodigo: inscripcion.curso || pago.curso || cursoSigla,
-    cursoNombre: course ? course.nombre : (inscripcion.curso || pago.curso || cursoSigla),
+    cursoCodigo: cursoSigla,
+    cursoNombre: NOMBRES[cursoSigla] || (course ? course.nombre : (inscripcion.curso || pago.curso || cursoSigla)),
     cursoSigla,
     fechaPago: pago.createdAt,
     valorDepositado: pago.valorDepositado,
@@ -102,6 +109,10 @@ module.exports = async function generarCertificado(pagoId) {
       grupo = null;
       console.log("🟡 Usando template base:", templateBase);
     } else {
+      // Para PIAT nunca usar plantilla genérica: evita emitir un diploma incorrecto.
+      if (esDiplomado(cursoSigla)) {
+        throw new Error(`Falta plantilla para ${cursoSigla}: template_${cursoSigla}.pdf o template_${cursoSigla}_<grupo>.pdf`);
+      }
       // fallback genérico
       const generalPath = path.join(templatesDir, "template_general.pdf");
       if (!fs.existsSync(generalPath)) {

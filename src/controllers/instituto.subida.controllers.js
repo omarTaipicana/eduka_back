@@ -7,7 +7,9 @@ const Certificado = require("../models/Certificado");
 const Inscripcion = require("../models/Inscripcion");
 const User = require("../models/User");
 const Course = require("../models/Course");
-const ReporteCertificados = require("../models/ReporteCertificados"); 
+const ReporteCertificados = require("../models/ReporteCertificados");
+const Pagos = require("../models/Pagos");
+const { esDiplomado, inscripcionCurso, NOMBRES } = require("../utils/piatCertificados"); 
 // const sendEmail = require("../utils/sendEmail"); // lo usamos luego
 
 // ... cabecera igual que ya tienes ...
@@ -108,7 +110,7 @@ const subirCertificadosFirmados = catchError(async (req, res) => {
 
     // 5) Buscar inscripción por userId + curso
     const inscripcion = await Inscripcion.findOne({
-      where: { userId: user.id, curso: sigla },
+      where: { userId: user.id, curso: inscripcionCurso(sigla) },
     });
 
     if (!inscripcion) {
@@ -120,6 +122,18 @@ const subirCertificadosFirmados = catchError(async (req, res) => {
       continue;
     }
 
+
+    // Los diplomados II-IV no tienen inscripción ni pago propios.
+    // Comprobar que el pago del curso principal esté verificado.
+    if (esDiplomado(sigla)) {
+      const pagoValidado = await Pagos.findOne({
+        where: { inscripcionId: inscripcion.id, verificado: true },
+      });
+      if (!pagoValidado) {
+        reporte.erroneos.push({ archivo: fileName, cedula, motivo: "Pago PIAT no verificado" });
+        continue;
+      }
+    }
 
     // 5) Buscar curso por userId + curso
     const curso = await Course.findOne({
@@ -202,7 +216,7 @@ const subirCertificadosFirmados = catchError(async (req, res) => {
       <div style="padding: 35px; text-align: center;">
         <h1 style="color: #1B326B; margin-bottom: 10px;">¡Felicitaciones ${user.firstName} ${user.lastName}!</h1>
         <h2 style="font-weight: normal; margin-bottom: 25px;">Tu certificado del curso:</h2>
-        <h2 style="color: #1B326B; margin-bottom: 25px;">"${curso.nombre.toUpperCase()}"</h2>
+        <h2 style="color: #1B326B; margin-bottom: 25px;">"${(NOMBRES[sigla] || curso?.nombre || sigla).toUpperCase()}"</h2>
         
         <p style="font-size: 16px; line-height: 1.6; margin-bottom: 25px;">
           Nos complace informarte que tu certificado ha sido emitido exitosamente y ya se encuentra disponible para su descarga.
@@ -400,7 +414,7 @@ try {
 
     await sendEmail({
       to: `${institEmail}, ${edukaEmail}, ${acadexEmail}`,
-      subject: `Resumen de carga de certificados firmados - Curso ${curso.nombre.toUpperCase()}`,
+      subject: `Resumen de carga de certificados firmados - Curso ${(NOMBRES[sigla] || curso?.nombre || sigla).toUpperCase()}`,
       html: `
       <div style="font-family: Arial, sans-serif; background-color: #f4f6f8; padding: 20px; color: #333;">
         <div style="max-width: 800px; margin: 0 auto; background-color: #ffffff; border-radius: 10px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); overflow: hidden;">
@@ -412,7 +426,7 @@ try {
           <div style="padding: 25px;">
             <h2 style="color:#1B326B; margin-bottom:10px;">Resumen de procesamiento de certificados firmados</h2>
             <p style="font-size:15px; margin-bottom:15px;">
-              Curso: <strong>${curso.nombre.toUpperCase()}</strong>
+              Curso: <strong>${(NOMBRES[sigla] || curso?.nombre || sigla).toUpperCase()}</strong>
             </p>
             <p style="font-size:14px; margin-bottom:15px;">
               <strong>Procesados:</strong> ${totalProcesados} &nbsp; | &nbsp;

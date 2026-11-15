@@ -9,6 +9,7 @@ const Course = require("../models/Course");
 const User = require("../models/User");
 const Certificado = require("../models/Certificado");
 const generarCertificado = require("../utils/generarCertificado");
+const { CURSO_PRINCIPAL, DIPLOMADOS } = require("../utils/piatCertificados");
 const { contificoEmitirFacturaPorPagoId } = require("../utils/contifico.facturacion");
 
 const { Op, Sequelize } = require("sequelize");
@@ -994,16 +995,28 @@ const update = catchError(async (req, res) => {
   // 4. Detectar cambio de verificado: false -> true
   // 4. Detectar cambio de verificado: false -> true
   if (!verificadoAntes && verificadoDespues) {
-    // ✅ 1) Generar certificado
+    // Certificación PIAT: un pago, cuatro PDF independientes, sin duplicar inscripciones.
+    // Cada archivo se guarda en su carpeta y se firma con el flujo actual.
     try {
-      const yaTieneCert = await Certificado.findOne({
-        where: { inscripcionId: pagoActualizado.inscripcionId },
-      });
-
-      if (!yaTieneCert) {
-        await generarCertificado(pagoActualizado.id);
+      const inscripcionCert = await Inscripcion.findByPk(pagoActualizado.inscripcionId);
+      if (inscripcionCert?.curso === CURSO_PRINCIPAL) {
+        for (const sigla of DIPLOMADOS) {
+          try {
+            const yaImportado = await Certificado.findOne({
+              where: { inscripcionId: inscripcionCert.id, curso: sigla },
+            });
+            if (yaImportado) continue; // Nunca sobrescribir certificados importados.
+            await generarCertificado(pagoActualizado.id, sigla);
+          } catch (error) {
+            console.error(`❌ Error generando certificado PIAT ${sigla}:`, error);
+          }
+        }
       } else {
-        console.log("ℹ️ Ya existe certificado para esta inscripción, no se regenera.");
+        const yaTieneCert = await Certificado.findOne({
+          where: { inscripcionId: pagoActualizado.inscripcionId },
+        });
+        if (!yaTieneCert) await generarCertificado(pagoActualizado.id);
+        else console.log("ℹ️ Ya existe certificado para esta inscripción, no se regenera.");
       }
     } catch (error) {
       console.error("Error verificando/generando certificado:", error);

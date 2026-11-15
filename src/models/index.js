@@ -27,7 +27,7 @@ User.hasOne(Inscripcion);
 // User.hasMany(Certificado, { foreignKey: "cedula", sourceKey: "cI" });
 
 Certificado.belongsTo(Inscripcion);
-Inscripcion.hasOne(Certificado);
+Inscripcion.hasMany(Certificado);
 
 
 ProgramaInscripciones.belongsTo(ProgramasSuperiores);
