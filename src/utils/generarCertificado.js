@@ -236,7 +236,7 @@ module.exports = async function generarCertificado(pagoId, siglaCertificado = nu
   // 8) Firmar (mock/real)
   let signedPath = outputPath;
   try {
-    signedPath = await firmarPdfFirmaEc(outputPath, esPiat ? { ...dataCertificado, page: 1, rect: [535, 112, 717, 156] } : dataCertificado);
+    signedPath = await firmarPdfFirmaEc(outputPath, esPiat ? { ...dataCertificado, page: 1, rect: [501, 108, 721, 168] } : dataCertificado);
     console.log("✅ Certificado firmado en:", signedPath);
   } catch (err) {
     console.error("❌ Error firmando el certificado:", err);
