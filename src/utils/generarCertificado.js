@@ -35,7 +35,7 @@ module.exports = async function generarCertificado(pagoId, siglaCertificado = nu
   if (!user) throw new Error("Usuario no encontrado para esta inscripción");
 
   const course = inscripcion.course || inscripcion.Course || null;
-  const cursoSigla = course?.sigla || inscripcion.curso || pago.curso;
+  let cursoSigla = course?.sigla || inscripcion.curso || pago.curso;
 
   if (!cursoSigla) throw new Error("No se pudo determinar la sigla del curso");
   if (siglaCertificado) {
@@ -153,13 +153,14 @@ module.exports = async function generarCertificado(pagoId, siglaCertificado = nu
   const absoluteUrl = `${baseUrl}${relativeUrl}`;
   const qrBase64 = await QRCode.toDataURL(absoluteUrl);
   const qrImage = await pdfDoc.embedPng(qrBase64);
-  const qrSize = 69;
+  const esPiat = esDiplomado(cursoSigla);
+  const qrSize = esPiat ? 70 : 69;
 
 
 
   const fontSizeNombre = 40;
   const fontSizeApellido = 40;
-  const fontSizeNombreCompleto = 33;
+  let fontSizeNombreCompleto = 33;
   const minFontSize = 24;
   const maxWidth = width - 100;
 
@@ -177,7 +178,7 @@ module.exports = async function generarCertificado(pagoId, siglaCertificado = nu
 
   const yNombre = 250;
   const yApellido = 200;
-  const yNombreCompleto = 260;
+  const yNombreCompleto = esPiat ? 269 : 260;
 
 
   const xNombre = (width - nombreWidth) / 2;
@@ -209,10 +210,11 @@ module.exports = async function generarCertificado(pagoId, siglaCertificado = nu
     color: rgb(0, 0, 0),
   });
 
-  // Posicion exacta del QR de Cumanda (puntos PDF, origen inferior izquierdo).
+  // PIAT: centro del marco dorado; otros cursos conservan las coordenadas anteriores.
+  // Coordenadas en puntos PDF, origen inferior izquierdo.
   firstPage.drawImage(qrImage, {
-    x: 726,
-    y: 368,
+    x: esPiat ? 697 : 726,
+    y: esPiat ? 355 : 368,
     width: qrSize,
     height: qrSize,
   });
