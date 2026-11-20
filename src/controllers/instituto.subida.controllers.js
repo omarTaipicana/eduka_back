@@ -14,17 +14,7 @@ const { esDiplomado, inscripcionCurso, NOMBRES } = require("../utils/piatCertifi
 
 // ... cabecera igual que ya tienes ...
 
-const subirCertificadosFirmados = catchError(async (req, res) => {
-  const { sigla } = req.params;
-
-  if (!req.file) {
-    return res.status(400).json({ error: "Debe subir un archivo ZIP" });
-  }
-
-  const zipPath = req.file.path;
-  const zip = new AdmZip(zipPath);
-  const zipEntries = zip.getEntries();
-
+async function procesarPDF(entryPdf, sigla) {
   const carpetaEduka = path.join(
     __dirname,
     "..",
@@ -54,9 +44,9 @@ const subirCertificadosFirmados = catchError(async (req, res) => {
     erroneos: [],
   };
 
-  for (const entry of zipEntries) {
+  for (const entry of [entryPdf]) {
     if (entry.isDirectory) continue;
-    if (!entry.name.endsWith(".pdf")) continue;
+    if (!/\.pdf$/i.test(entry.name)) continue;
 
     const fileName = entry.name;
     const lower = fileName.toLowerCase();
@@ -146,7 +136,7 @@ const subirCertificadosFirmados = catchError(async (req, res) => {
       where: { inscripcionId: inscripcion.id, curso: sigla },
     });
 
-    if (certExistente && certExistente.entregado) {
+    if (certExistente && String(certExistente.entregado) === "true" && !["pendiente", "error"].includes(certExistente.estadoCorreo)) {
       reporte.duplicados.push({
         archivo: fileName,
         cedula,
@@ -159,47 +149,19 @@ const subirCertificadosFirmados = catchError(async (req, res) => {
     const finalFileName = `${cedula}_${sigla}.pdf`;
     const finalPath = path.join(carpetaFinal, finalFileName);
 
-    fs.writeFileSync(finalPath, entry.getData());
-
-    // 8) Borrar certificados simples de EDUKA si existen
-    const posibleSimple1 = path.join(
-      carpetaEduka,
-      `${cedula}_${sigla}_g${grupo}_firmado.pdf`
-    );
-    const posibleSimple2 = path.join(carpetaEduka, `${cedula}_${sigla}.pdf`);
-    const posibleSimple3 = path.join(
-      carpetaEduka,
-      `${cedula}_${sigla}_g${grupo}.pdf`
-    );
-
-    [posibleSimple1, posibleSimple2, posibleSimple3].forEach((p) => {
-      if (p && fs.existsSync(p)) {
-        fs.unlinkSync(p);
-      }
-    });
-
-    // 9) URL pública
     const relativeUrl = `/uploads/certificados_firmados/${sigla}/${finalFileName}`;
-    const host = `${req.protocol}://${req.get("host")}`;
-    const absoluteUrl = `${host}${relativeUrl}`;
-
-    // 10) Crear o actualizar Certificado en BD con grupo
-    if (certExistente) {
-      certExistente.url = absoluteUrl;
-      certExistente.entregado = true;
-      if (grupo) certExistente.grupo = grupo;
-      await certExistente.save();
-    } else {
-      await Certificado.create({
-        inscripcionId: inscripcion.id,
-        curso: sigla,
-        grupo, // ← grupo proveniente del template (via nombre de archivo)
-        url: absoluteUrl,
-        entregado: true,
-      });
+    const absoluteUrl = `${(process.env.PUBLIC_API_URL || "https://api.eduka-educ.com").replace(/\/$/, "")}${relativeUrl}`;
+    let cert = certExistente;
+    if (!cert || String(cert.entregado) !== "true") {
+      const data = entry.getData();
+      if (data.subarray(0,5).toString() !== "%PDF-") throw new Error("Archivo PDF inválido");
+      fs.writeFileSync(finalPath, data);
+      const values = { url: absoluteUrl, entregado: true, estadoCorreo: "pendiente", ...(grupo ? {grupo} : {}) };
+      if (cert) await cert.update(values);
+      else cert = await Certificado.create({ ...values, inscripcionId: inscripcion.id, curso: sigla });
     }
-
-
+    if (!fs.existsSync(finalPath)) throw new Error("No se encontró el PDF firmado guardado");
+    try {
     await sendEmail({
       to: user.email,
       subject: "🎓 Tu certificado está listo - EDUKA",
@@ -275,6 +237,14 @@ const subirCertificadosFirmados = catchError(async (req, res) => {
 
 
 
+    await cert.update({ estadoCorreo: "enviado" });
+    } catch (err) {
+      await cert.update({ estadoCorreo: "error" });
+      throw new Error("PDF guardado; correo no confirmado: " + (err.message || "SMTP"));
+    }
+    for (const name of [`${cedula}_${sigla}_g${grupo}_firmado.pdf`, `${cedula}_${sigla}.pdf`, `${cedula}_${sigla}_g${grupo}.pdf`]) {
+      try { fs.unlinkSync(path.join(carpetaEduka, name)); } catch (err) { if (err.code !== "ENOENT") console.error(err); }
+    }
     reporte.procesados.push({
       archivo: fileName,
       cedula,
@@ -284,13 +254,9 @@ const subirCertificadosFirmados = catchError(async (req, res) => {
     });
   }
 
-  try {
-    fs.unlinkSync(zipPath);
-  } catch (err) {
-    console.error("⚠️ No se pudo borrar el ZIP temporal:", err);
-  }
-
-
+ return reporte;
+}
+async function finalizarReporte(sigla, reporte) {
   // 13) Enviar correo de resumen al instituto + a ti
   // 🧾 Guardar reporte en BD
 try {
@@ -458,10 +424,6 @@ try {
     console.error("⚠️ Error enviando correo de resumen al instituto/admin:", err);
   }
 
-  return res.json({
-    mensaje: "Procesado finalizado",
-    reporte,
-  });
-});
 
-module.exports = { subirCertificadosFirmados };
+}
+module.exports = { procesarPDF, finalizarReporte };

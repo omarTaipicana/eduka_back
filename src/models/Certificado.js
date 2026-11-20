@@ -20,6 +20,7 @@ const Certificado = sequelize.define("certificado", {
     type: DataTypes.STRING,
     allowNull: false,
   },
+  estadoCorreo: { type: DataTypes.STRING, allowNull: true },
   entregado: {
     type: DataTypes.STRING,
     allowNull: false,

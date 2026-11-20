@@ -1,0 +1,5 @@
+{
+  "watch": ["src", "package.json"], 
+  "ext": "js,mjs,cjs,json",
+  "ignore": ["**/uploads/**", "**/private/**", "**/cert-jobs/**", "**/job.json", "**/job.json.tmp"]
+}
