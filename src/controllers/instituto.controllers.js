@@ -101,51 +101,34 @@ const descargarCertificadosSeleccionados = catchError(async (req, res) => {
     return res.status(404).json({ error: "No existe la carpeta del curso" });
   }
 
-  // Headers de respuesta ZIP
-const now = new Date();
-
-// Formato YYYY-MM-DD
-const fecha = now.toISOString().split("T")[0];
-
-// Formato HH-MM-SS
-const hora = now
-  .toTimeString()
-  .split(" ")[0]      // "14:32:55"
-  .replace(/:/g, "-"); // "14-32-55"
-
-const filename = `certificados_${sigla}_${fecha}_${hora}.zip`;
-
-// Headers ZIP
-res.setHeader("Content-Type", "application/zip");
-res.setHeader(
-  "Content-Disposition",
-  `attachment; filename="${filename}"`
-);
-
-// 👇 AGREGA ESTA LÍNEA
-res.setHeader("Access-Control-Expose-Headers", "Content-Disposition");
-
-
-
-  const archive = archiver("zip", { zlib: { level: 9 } });
-
-  // Pipe ZIP → response
-  archive.pipe(res);
-
-  for (const fileName of archivos) {
-    const filePath = path.join(baseDir, fileName);
-
-    if (fs.existsSync(filePath)) {
-      archive.file(filePath, { name: fileName });
-    } else {
-      console.warn("⚠️ Archivo no encontrado, no se incluye en ZIP:", fileName);
-    }
+  // Validar todos los nombres antes de generar el ZIP.
+  const names = [...new Set(archivos)];
+  if (!/^[a-zA-Z0-9_-]+$/.test(sigla) || names.some(n => typeof n !== "string" || path.basename(n)!==n || /[\\/]/.test(n) || !/\.pdf$/i.test(n))) return res.status(400).json({message:"Nombre de archivo inválido"});
+  for (const n of names) if (!fs.existsSync(path.join(baseDir,n)) || !fs.statSync(path.join(baseDir,n)).isFile()) return res.status(404).json({message:`Archivo no disponible: ${n}`});
+  const os = require("os");
+  const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(),"eduka-zip-"));
+  const zipPath = path.join(dir,"certificados.zip");
+  let archive, out;
+  try {
+    await new Promise((resolve,reject)=>{
+      out=fs.createWriteStream(zipPath);
+      archive=archiver("zip",{zlib:{level:1}});
+      out.on("close",resolve); out.on("error",reject); archive.on("error",reject); archive.on("warning",reject);
+      archive.pipe(out); for(const n of names) archive.file(path.join(baseDir,n),{name:n});
+      archive.finalize().catch(reject);
+    });
+    if(res.destroyed) return;
+    const filename=`certificados_${sigla}_${new Date().toISOString().replace(/[:.]/g,"-")}.zip`;
+    res.setHeader("Content-Type","application/zip");
+    res.setHeader("Content-Disposition",`attachment; filename="${filename}"`);
+    res.setHeader("Content-Length",(await fs.promises.stat(zipPath)).size);
+    res.setHeader("Access-Control-Expose-Headers","Content-Disposition, Content-Length");
+    await require("stream/promises").pipeline(fs.createReadStream(zipPath),res);
+  } finally {
+    if(archive) archive.abort();
+    if(out && !out.closed) { out.destroy(); await new Promise(resolve => out.once("close",resolve)); }
+    await fs.promises.rm(dir,{recursive:true,force:true});
   }
-
-  archive.finalize();
 });
 
-module.exports = {
-  listarCertificadosPorCurso,
-  descargarCertificadosSeleccionados,
-};
+module.exports={listarCertificadosPorCurso,descargarCertificadosSeleccionados};

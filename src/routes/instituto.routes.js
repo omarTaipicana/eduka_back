@@ -29,8 +29,9 @@ const auth=[verifyJWT,wrap(allowed)];
 function save(j){ const f=path.join(root,j.id,'job.json'); fs.writeFileSync(f+'.tmp',JSON.stringify(j),{mode:0o600}); fs.renameSync(f+'.tmp',f); }
 function get(req){ const id=req.params.id; if(!/^[a-f0-9]{32}$/.test(id)) return null; try {const j=JSON.parse(fs.readFileSync(path.join(root,id,'job.json'))); return j.owner===req.actor.id && j.items.every(i=>!i.sigla||req.allowed.includes(i.sigla))?j:null;} catch{return null;} }
 function view(j){return {id:j.id,items:j.items,curso:j.curso,finished:j.finished,summaryError:j.summaryError};}
-router.get('/instituto/certificados/:sigla', listarCertificadosPorCurso);
-router.post('/instituto/certificados/:sigla/descargar', descargarCertificadosSeleccionados);
+const cursoPermitido = (req,res,next) => req.allowed.includes(req.params.sigla) ? next() : res.sendStatus(403);
+router.get('/instituto/certificados/:sigla', ...auth, cursoPermitido, listarCertificadosPorCurso);
+router.post('/instituto/certificados/:sigla/descargar', ...auth, cursoPermitido, descargarCertificadosSeleccionados);
 router.get(base,...auth,wrap(async(req,res)=>{ const jobs=[]; for(const id of fs.readdirSync(root)){if(!/^[a-f0-9]{32}$/.test(id))continue; const j=get({...req,params:{id}}); if(j&&!j.finished)jobs.push(view(j));} res.json(jobs); }));
 router.post(base,...auth,upload.single('zip'),wrap(async(req,res)=>{
  if(!req.file)return res.status(400).json({message:'Selecciona ZIP'});
